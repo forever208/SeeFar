@@ -12,7 +12,7 @@ class Detector():
     """
     def __init__(self, model):
         self.img_size = 640
-        self.threshold = 0.3
+        self.threshold = 0.25
         self.stride = 1
         self.init_model(model)
         self.obj_list = ['car']    # obj class that only shown in this project, e.g. ['person', 'car', 'bus', 'truck']

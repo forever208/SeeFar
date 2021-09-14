@@ -8,7 +8,8 @@ class SpeedEstimation:
     """
 
     def __init__(self):
-        self.bbox_history_ls = []
+        self.bbox_history = []
+        self.speed_info_his = {}    # speed info of 100 history tracks, {track_id: (motion_vec, speed)...}
         self.num_frames = 5    # number of frames the displacement of car is calculated
         self.param_init = False
         self.img_w = None
@@ -39,33 +40,44 @@ class SpeedEstimation:
 
         bbox_with_speed = current_frame_bbox
         if len(current_frame_bbox) > 0:
-            self.bbox_history_ls.append(current_frame_bbox)
+            self.bbox_history.append(current_frame_bbox)
 
-            # for each bbox in current frame, find the its corresponding bbox in previous 4th or 5th frames
-            if len(self.bbox_history_ls) == self.num_frames:
-                for tnow_bbox in self.bbox_history_ls[self.num_frames-1]:
+            if len(self.bbox_history) == self.num_frames:
+                for tnow_bbox in self.bbox_history[self.num_frames - 1]:
                     bbox_matched = False
-                    for t0_bbox in self.bbox_history_ls[0]:
-                        if t0_bbox[4] == tnow_bbox[4]:    # if ID matched in previous 5th frames
+
+                    # for each bbox in current frame, find its corresponding bbox in previous 5th frames
+                    for t0_bbox in self.bbox_history[0]:
+                        if t0_bbox[4] == tnow_bbox[4]:
                             bbox_matched = True
                             speed, motion_vec = self.speed_calculation(t0_bbox, tnow_bbox, self.num_frames)
+
+                            # add track_id: (motion_vec, speed) to dict, maintain a history dict with 100 length
+                            self.speed_info_his[tnow_bbox[4]] = (motion_vec, speed)
+                            if len(self.speed_info_his) == 100:
+                                for key in self.speed_info_his.keys():
+                                    del self.speed_info_his[key]
+                                    break
                             break
-                    if not bbox_matched:
-                        for t1_bbox in self.bbox_history_ls[1]:
-                            if t1_bbox[4] == tnow_bbox[4]:    # if ID matched in previous 4th frames
+
+                    # if current track ID has record in history dict, assign history speed info to current track ID
+                    if not bbox_matched and self.speed_info_his:
+                        for track_id, value in self.speed_info_his.items():
+                            if track_id == tnow_bbox[4]:
+                                speed = value[1]
+                                motion_vec = value[0]
                                 bbox_matched = True
-                                speed, motion_vec = self.speed_calculation(t1_bbox, tnow_bbox, self.num_frames-1)
-                                break
+
                     if not bbox_matched:
                         speed = ''
                         motion_vec = ''
 
                     tnow_bbox.append(speed)
                     tnow_bbox.append(motion_vec)
-                    # print(motion_vec)
 
-                bbox_with_speed = self.bbox_history_ls[-1]
-                del self.bbox_history_ls[0]
+                bbox_with_speed = self.bbox_history[-1]
+                del self.bbox_history[0]
+
             # fill in with None for speed and motion_vec when frames have not been accumulated to full
             else:
                 for bbox in current_frame_bbox:
@@ -87,6 +99,7 @@ class SpeedEstimation:
         @param t_interval: int, time interval between t0 and tnow
         @return:
             speed: float, km/h
+            motion_vec: float tuple, (x_move, y_move, t_interval)
         """
 
         # compute the displacement in pixel plane
@@ -95,7 +108,7 @@ class SpeedEstimation:
         x_new = (tnow_bbox[0] + tnow_bbox[2]) / 2
         y_new = (tnow_bbox[1] + tnow_bbox[3]) / 2
         pixel_dis = math.sqrt((x_new - x_old) ** 2 + (y_new - y_old) ** 2)
-        motion_vec = (x_new-x_old, y_new-y_old)
+        motion_vec = (x_new-x_old, y_new-y_old, t_interval)
 
         # compute the angle from image plane
         w_to_center = abs((x_new + x_old) / 2 - (self.img_w / 2)) * self.cam_sw
@@ -125,7 +138,8 @@ class SpeedEstimation:
         """
         for i, (x1, y1, x2, y2, id, speed, motion_vec) in enumerate(current_frame_bbox):
             if motion_vec:
-                if abs(motion_vec[0]) + abs(motion_vec[1]) >= 3:
+                # valid motion: magnitude of motion vector has to be >= 0.5 pixel/frame
+                if (abs(motion_vec[0])/motion_vec[2] + abs(motion_vec[1])/motion_vec[2]) >= 0.5:
                     # x displacement > y displacement
                     if abs(motion_vec[0]) > abs(motion_vec[1]):
                         if motion_vec[0] > 0:

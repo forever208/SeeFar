@@ -51,7 +51,7 @@ class FlowCounter():
                     cur_bbox.append('init')
             self.bbox_history_ls.append(bbox_current_frame)  # add current frame bbox into the bbox history
 
-        # TODO: consider the situation when a frame has 1 or 2 bbox
+        # mark as 'few' when there is <=2 bbox in current frame
         else:
             for cur_bbox in bbox_current_frame:
                 cur_bbox.append('few')
@@ -218,6 +218,7 @@ class FlowCounter():
                     delta = np.array([xc, yc]) - mean1
                     z = scipy.linalg.solve_triangular(L1, delta.T, lower=True, check_finite=False, overwrite_b=True)
                     squared_maha = np.sum(z * z, axis=0)
+
                 # if bbox has the same motion direction with flow 2
                 elif bbox[7] == self.flow_direct2:
                     xc = (bbox[0] + bbox[2]) / 2
@@ -225,11 +226,16 @@ class FlowCounter():
                     delta = np.array([xc, yc]) - mean2
                     z = scipy.linalg.solve_triangular(L2, delta.T, lower=True, check_finite=False, overwrite_b=True)
                     squared_maha = np.sum(z * z, axis=0)
-                # if bbox has different motion direction with flow 1 and flow 2, mark as 'out'
-                else:
-                    squared_maha = 100
-                    print(bbox)
 
+                # if bbox has different motion direction with flow 1 and flow 2, mark as 'out'
+                elif bbox[5]:
+                    squared_maha = 100
+
+                # if the bbox is new, it has no motion info, therefore mark as 'init'
+                else:
+                    squared_maha = 200
+
+                # assign in/out according to the Maha distance
                 if squared_maha <= 5.99*2:    # 95% confidence interval belongs to the chi-squared distribution
                     bbox.append('in')
                 else:
