@@ -36,7 +36,7 @@ class TrafficAnalyst():
         self.retDict = {'frame': None, 'list_of_ids': None, 'obj_bboxes': []}
 
 
-    def plot_bboxes(self, image, bboxes, line_thickness=None):
+    def plot_bboxes(self, image, bboxes, flow_direct1, flow_direct2, line_thickness=None):
         """
         plot all bbox and count the traffic flow
         @param image: original video frame, 3D array (h, w, 3)
@@ -50,17 +50,19 @@ class TrafficAnalyst():
         # plot bbox, id, speed on the image
         for (x1, y1, x2, y2, id, speed, motion_vec, motion_dir, within_flow) in bboxes:
             # set different color for each tracked object
-            # color_set = [(150, 147, 10), (0, 155, 238), (18, 32, 174), (217, 165, 61),
-            #              (1, 198, 254), (146, 99, 255), (249, 148, 165), (160, 214, 6)]
-            # color = color_set[int(id) % 8]
             if within_flow == 'in':
-                color = (150, 147, 10)    # BGR channel, green
+                if motion_dir == flow_direct1:
+                    color = (150, 147, 10)    # bbox in flow1: green (BGR channel)
+                elif motion_dir == flow_direct2:
+                    color = (249, 187, 0)    # bbox in flow2: blue (BGR channel)
+                else:
+                    raise Exception("bbox within flow has different directions with both flows")
             elif within_flow == 'out':
-                color = (4, 19, 186)    # BGR channel, red
+                color = (4, 19, 186)    # bbox out of main flow: red (BGR channel)
             elif within_flow == 'few':
-                color = (200, 200, 200)    # BGR channel, gray
+                color = (200, 200, 200)    # too few bbox in current frame: gray (BGR channel)
             elif within_flow == 'init':
-                color = (0, 155, 238)    # BGR channel, orange
+                color = (0, 155, 238)    # vehicle flow is being initialised: orange (BGR channel)
             else:
                 raise Exception("flow attribute is not defined")
 
@@ -112,13 +114,14 @@ class TrafficAnalyst():
         # bboxes_with_speed: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction], []...[]]
         bboxes_with_speed = self.speed_estimator.speed_update(bboxes_tracked, image)
 
-        """4. Do flow counter (detect the main road, count the traffic flow)"""
+        """4. Do flow detection and flow counter (detect the main road, count the traffic flow)"""
         # bbox_within_flow: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
         bbox_within_flow = self.flow_counter.main_road_judge(bboxes_with_speed)
         image = self.flow_counter.flow_counter(image, bbox_within_flow)
+        flow_direct1, flow_direct2 = self.flow_counter.flow_direct1, self.flow_counter.flow_direct2
 
         # plot bbox, id, dynamic area, speed on the image
-        image = self.plot_bboxes(image, bbox_within_flow)
+        image = self.plot_bboxes(image, bbox_within_flow, flow_direct1, flow_direct2)
 
         # return management
         self.frameCounter += 1

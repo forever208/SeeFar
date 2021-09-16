@@ -7,7 +7,7 @@ class FlowCounter():
 
     def __init__(self, num_frames=20):
         self.bbox_history_ls = []
-        self.num_frames = num_frames  # number of frames the dynamic area maintains
+        self.num_frames = num_frames  # number of frames the history flow direction is preserved
         self.flow_direct1 = None    # string, 'right'/'left'/'down'/'up'/'static'
         self.flow_direct2 = None    # string, 'right'/'left'/'down'/'up'/'static'
 
@@ -31,7 +31,7 @@ class FlowCounter():
             bbox_current_frame: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
         """
 
-        if len(bbox_current_frame) > 2:
+        if len(bbox_current_frame) >= 4:
             if len(self.bbox_history_ls) == self.num_frames-1:
                 # TODO: only use history bbox that are already in the flow to compute Mahala distance
                 # get all bbox of previous 19 frames
@@ -51,7 +51,7 @@ class FlowCounter():
                     cur_bbox.append('init')
             self.bbox_history_ls.append(bbox_current_frame)  # add current frame bbox into the bbox history
 
-        # mark as 'few' when there is <=2 bbox in current frame
+        # mark as 'few' when there is less than 4 bbox in current frame
         else:
             for cur_bbox in bbox_current_frame:
                 cur_bbox.append('few')
@@ -61,7 +61,7 @@ class FlowCounter():
 
     def flow_counter(self, image, bbox_current_frame):
         """
-
+        count the traffic flow volume
         @param image: original image, 3D array
         @param bbox_current_frame: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
         @return:
@@ -138,12 +138,24 @@ class FlowCounter():
 
         # return the image with flow counter info
         image = cv2.add(image, self.color_polygons_image)
-        text_draw = 'DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter)
         image = cv2.putText(img = image,
-                            text = text_draw,
-                            org = (int(self.img_width * 0.01), int(self.img_height * 0.05)),
+                            text = 'DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter),
+                            org = (int(self.img_width * 0.05), int(self.img_height * 0.05)),
                             fontFace = cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale = 0.75, color = (150, 147, 10), thickness = 2)
+                            fontScale = 0.75, color = (255, 255, 255), thickness = 2)
+
+        image = cv2.putText(img=image,
+                            text='flow1: ' + str(self.flow_direct1),
+                            org=(int(self.img_width * 0.3), int(self.img_height * 0.05)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=0.75, color=(150, 147, 10), thickness=2)
+
+        image = cv2.putText(img=image,
+                            text='flow2: ' + str(self.flow_direct2),
+                            org=(int(self.img_width * 0.5), int(self.img_height * 0.05)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=0.75, color=(249, 187, 0), thickness=2)
+
         return image
 
 
@@ -164,7 +176,7 @@ class FlowCounter():
             if bbox[7]:
                 bbox_direction_ls.append(bbox[7])
 
-        # find the 2 flow directions ('right'/'left'/'down'/'up'/'static')
+        # find the 2 main flow directions ('right'/'left'/'down'/'up'/'static')
         self.flow_direct1 = max(bbox_direction_ls, key=bbox_direction_ls.count)
         while self.flow_direct1 in bbox_direction_ls:
             bbox_direction_ls.remove(self.flow_direct1)
@@ -198,17 +210,10 @@ class FlowCounter():
         mean1, mean2 = np.mean(flow1_array.T, axis=1), np.mean(flow2_array.T, axis=1)
         cov1, cov2 = np.cov(flow1_array.T), np.cov(flow2_array.T)  # cov = L * L.trans
 
-        # TODO: consider the situation when covariance matrix is not positive definite
+        # TODO: Matrix is not positive definite
         L1, L2 = np.linalg.cholesky(cov1), np.linalg.cholesky(cov2)
 
         for bbox in bbox_current_frame:
-            # directly assign 'in' to the current bbox if last bbox with same ID is 'in' the main flow
-            for last_bbox in self.bbox_history_ls[-1]:
-                if bbox[4] == last_bbox[4]:
-                    if last_bbox[8]:
-                        if last_bbox[8] == 'in':
-                            bbox.append('in')
-
             # compute Mahala distance between current bbox and history flow centre
             if len(bbox) == 8:
                 # if bbox has the same motion direction with flow 1
@@ -236,8 +241,10 @@ class FlowCounter():
                     squared_maha = 200
 
                 # assign in/out according to the Maha distance
-                if squared_maha <= 5.99*2:    # 95% confidence interval belongs to the chi-squared distribution
+                if squared_maha <= 5.99*3:    # 95% confidence interval belongs to the chi-squared distribution
                     bbox.append('in')
+                elif squared_maha == 200:
+                    bbox.append('init')
                 else:
                     bbox.append('out')
 

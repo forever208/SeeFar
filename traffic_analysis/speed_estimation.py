@@ -10,7 +10,7 @@ class SpeedEstimation:
     def __init__(self):
         self.bbox_history = []
         self.speed_info_his = {}    # speed info of 100 history tracks, {track_id: (motion_vec, speed)...}
-        self.num_frames = 5    # number of frames the displacement of car is calculated
+        self.num_frames = 10    # number of frames when the car displacement is calculated
         self.param_init = False
         self.img_w = None
         self.img_h = None
@@ -46,7 +46,7 @@ class SpeedEstimation:
                 for tnow_bbox in self.bbox_history[self.num_frames - 1]:
                     bbox_matched = False
 
-                    # for each bbox in current frame, find its corresponding bbox in previous 5th frames
+                    # for each bbox in current frame, find its corresponding bbox in previous 10th frames
                     for t0_bbox in self.bbox_history[0]:
                         if t0_bbox[4] == tnow_bbox[4]:
                             bbox_matched = True
@@ -138,8 +138,8 @@ class SpeedEstimation:
         """
         for i, (x1, y1, x2, y2, id, speed, motion_vec) in enumerate(current_frame_bbox):
             if motion_vec:
-                # valid motion: magnitude of motion vector has to be >= 0.5 pixel/frame
-                if (abs(motion_vec[0])/motion_vec[2] + abs(motion_vec[1])/motion_vec[2]) >= 0.5:
+                # valid motion: magnitude of motion vector has to be >= 0.25 pixel/frame
+                if (abs(motion_vec[0])/motion_vec[2] + abs(motion_vec[1])/motion_vec[2]) >= 0.1:
                     # x displacement > y displacement
                     if abs(motion_vec[0]) > abs(motion_vec[1]):
                         if motion_vec[0] > 0:
