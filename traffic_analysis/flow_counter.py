@@ -1,15 +1,17 @@
 import numpy as np
 import scipy.linalg
 import cv2
-
+import math
 
 class FlowCounter():
 
     def __init__(self, num_frames=20):
         self.bbox_history_ls = []
         self.num_frames = num_frames  # number of frames the history flow direction is preserved
-        self.flow_direct1 = None    # string, 'right'/'left'/'down'/'up'/'static'
-        self.flow_direct2 = None    # string, 'right'/'left'/'down'/'up'/'static'
+        self.flow_direct1 = None    # first flow direction of history bbox, 'right'/'left'/'down'/'up'/'static'
+        self.flow_direct2 = None    # second flow direction of history bbox, 'right'/'left'/'down'/'up'/'static'
+        self.flow_vec1 = None    # first flow vector of history bbox, (x_mean, y_mean)
+        self.flow_vec2 = None    # second flow vector of history bbox, (x_mean, y_mean)
 
         self.img_width = 1280
         self.img_height = 720
@@ -33,7 +35,6 @@ class FlowCounter():
 
         if len(bbox_current_frame) >= 4:
             if len(self.bbox_history_ls) == self.num_frames-1:
-                # TODO: only use history bbox that are already in the flow to compute Mahala distance
                 # get all bbox of previous 19 frames
                 bbox_before = []
                 for i in range(0, self.num_frames-1):
@@ -49,7 +50,7 @@ class FlowCounter():
             else:
                 for cur_bbox in bbox_current_frame:
                     cur_bbox.append('init')
-            self.bbox_history_ls.append(bbox_current_frame)  # add current frame bbox into the bbox history
+            self.bbox_history_ls.append(bbox_current_frame)    # add current frame bbox into the bbox history
 
         # mark as 'few' when there is less than 4 bbox in current frame
         else:
@@ -102,7 +103,7 @@ class FlowCounter():
                     # if current track was in yellow polygon before, remark the track as an UP vehicle
                     if track_id in self.yellow_polygon_history:
                         self.up_counter += 1
-                        print('up count:', self.up_counter, ', up id:', self.yellow_polygon_history)
+                        # print('up count:', self.up_counter, ', up id:', self.yellow_polygon_history)
                         # remove the track record in yellow polygon to avoid duplicate count
                         self.yellow_polygon_history.remove(track_id)
 
@@ -113,7 +114,7 @@ class FlowCounter():
                     # if current track was in blue polygon before, remark the track as a DOWN object
                     if track_id in self.blue_polygon_history:
                         self.down_counter += 1
-                        print('down count:', self.down_counter, ', down id:', self.blue_polygon_history)
+                        # print('down count:', self.down_counter, ', down id:', self.blue_polygon_history)
                         # remove the track record in blue polygon to avoid duplicate count
                         self.blue_polygon_history.remove(track_id)
 
@@ -164,6 +165,7 @@ class FlowCounter():
         given the previous 19 frames bbox
         1. find the 2 flow directions, assign the directions to the class attributes
         2. split history_bbox into 2 groups based on the flow directions
+        3. compute the mean motion vectors for 2 flows
         @param history_bbox: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction], []...[]]
         @return:
             bbox_flow1: the bbox of the first main flow, [[xc, yc], []...[]]
@@ -176,20 +178,29 @@ class FlowCounter():
             if bbox[7]:
                 bbox_direction_ls.append(bbox[7])
 
-        # find the 2 main flow directions ('right'/'left'/'down'/'up'/'static')
+        # 1. find the 2 main flow directions ('right'/'left'/'down'/'up'/'static')
         self.flow_direct1 = max(bbox_direction_ls, key=bbox_direction_ls.count)
         while self.flow_direct1 in bbox_direction_ls:
             bbox_direction_ls.remove(self.flow_direct1)
         self.flow_direct2 = max(bbox_direction_ls, key=bbox_direction_ls.count)
 
-        # split history_bbox into 2 groups based on the flow directions
+        # 2. split history_bbox into 2 groups based on the flow directions
         bbox_flow1, bbox_flow2 = [], []
+        motion_vec_flow1, motion_vec_flow2 = [], []
         for bbox in history_bbox:
             if bbox[7]:
                 if bbox[7] == self.flow_direct1:
                     bbox_flow1.append([(bbox[0]+bbox[2])/2, (bbox[1]+bbox[3])/2])
+                    motion_vec_flow1.append(bbox[6])
                 elif bbox[7] == self.flow_direct2:
                     bbox_flow2.append([(bbox[0]+bbox[2])/2, (bbox[1]+bbox[3])/2])
+                    motion_vec_flow2.append(bbox[6])
+
+        # 3. calculate the mean motion vector for the 2 flows
+        x1_mean, y1_mean = np.array(motion_vec_flow1).mean(axis=0)
+        x2_mean, y2_mean = np.array(motion_vec_flow2).mean(axis=0)
+        self.flow_vec1 = (x1_mean, y1_mean)
+        self.flow_vec2 = (x2_mean, y2_mean)
 
         return bbox_flow1, bbox_flow2
 
@@ -218,34 +229,71 @@ class FlowCounter():
             if len(bbox) == 8:
                 # if bbox has the same motion direction with flow 1
                 if bbox[7] == self.flow_direct1:
-                    xc = (bbox[0] + bbox[2]) / 2
-                    yc = (bbox[1] + bbox[3]) / 2
-                    delta = np.array([xc, yc]) - mean1
-                    z = scipy.linalg.solve_triangular(L1, delta.T, lower=True, check_finite=False, overwrite_b=True)
-                    squared_maha = np.sum(z * z, axis=0)
+                    squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean1, L1)
 
                 # if bbox has the same motion direction with flow 2
                 elif bbox[7] == self.flow_direct2:
-                    xc = (bbox[0] + bbox[2]) / 2
-                    yc = (bbox[1] + bbox[3]) / 2
-                    delta = np.array([xc, yc]) - mean2
-                    z = scipy.linalg.solve_triangular(L2, delta.T, lower=True, check_finite=False, overwrite_b=True)
-                    squared_maha = np.sum(z * z, axis=0)
+                    squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2)
 
-                # if bbox has different motion direction with flow 1 and flow 2, mark as 'out'
+                # the motion direction (up/down/left/right) is rough calculation
+                # especially when vehicle is too far or move along the diagonal
+                # Therefore,
+                # we need to further compute the angle between motion vector and flow motion vector
                 elif bbox[5]:
-                    squared_maha = 100
+                    theta1 = self.angle_of_vectors(bbox[6], self.flow_vec1)
+                    theta2 = self.angle_of_vectors(bbox[6], self.flow_vec2)
+                    # if the angle between motion vector and the flow_1 < 45 degree, compute the maha distance
+                    if theta1 < theta2 and theta1 < 45:
+                        squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean1, L1)
+                        bbox[7] = self.flow_direct1
+                    # if the angle between motion vector and the flow_2 < 45 degree, compute the maha distance
+                    elif theta2 < theta1 and theta2 < 45:
+                        squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2)
+                        bbox[7] = self.flow_direct2
+                    else:
+                        squared_maha = 100
 
                 # if the bbox is new, it has no motion info, therefore mark as 'init'
                 else:
                     squared_maha = 200
 
                 # assign in/out according to the Maha distance
-                if squared_maha <= 5.99*3:    # 95% confidence interval belongs to the chi-squared distribution
+                if squared_maha <= 5.99*10:    # 95% confidence interval belongs to the chi-squared distribution
                     bbox.append('in')
                 elif squared_maha == 200:
                     bbox.append('init')
                 else:
                     bbox.append('out')
+                    # print(squared_maha, bbox[7])
 
         return bbox_current_frame
+
+
+    def maha_calculator(self, x1, y1, x2, y2, mean, L_matrix):
+        """
+        compute sqaured mahalanobis distance
+        """
+        xc = (x1 + x2) / 2
+        yc = (y1 + y2) / 2
+        delta = np.array([xc, yc]) - mean
+        z = scipy.linalg.solve_triangular(L_matrix, delta.T, lower=True, check_finite=False, overwrite_b=True)
+        squared_maha = np.sum(z * z, axis=0)
+
+        return squared_maha
+
+
+    def angle_of_vectors(self, v1, v2):
+        """
+        compute the cos angle between 2 vectors
+        @param v1: (x1, y1)
+        @param v2: (x2, y2)
+        @return:
+            theta: degree between (0, 180)
+        """
+        vector_product = v1[0] * v2[0] + v1[1] * v2[1]
+        vector_magnitude = math.sqrt(v1[0]**2 + v1[1]**2) * math.sqrt(v2[0]**2 + v2[1]**2)
+        cos = vector_product * 1.0 / (vector_magnitude * 1.0 + 1e-6)
+        theta = (math.acos(cos) / math.pi) * 180
+
+        return theta
+

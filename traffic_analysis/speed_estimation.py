@@ -108,7 +108,7 @@ class SpeedEstimation:
         x_new = (tnow_bbox[0] + tnow_bbox[2]) / 2
         y_new = (tnow_bbox[1] + tnow_bbox[3]) / 2
         pixel_dis = math.sqrt((x_new - x_old) ** 2 + (y_new - y_old) ** 2)
-        motion_vec = (x_new-x_old, y_new-y_old, t_interval)
+        motion_vec = (x_new-x_old, y_new-y_old)
 
         # compute the angle from image plane
         w_to_center = abs((x_new + x_old) / 2 - (self.img_w / 2)) * self.cam_sw
@@ -138,8 +138,8 @@ class SpeedEstimation:
         """
         for i, (x1, y1, x2, y2, id, speed, motion_vec) in enumerate(current_frame_bbox):
             if motion_vec:
-                # valid motion: magnitude of motion vector has to be >= 0.25 pixel/frame
-                if (abs(motion_vec[0])/motion_vec[2] + abs(motion_vec[1])/motion_vec[2]) >= 0.1:
+                # valid motion: magnitude of motion vector has to be >= 0.1 pixel/frame
+                if (abs(motion_vec[0]) + abs(motion_vec[1])) >= 0.1*self.num_frames:
                     # x displacement > y displacement
                     if abs(motion_vec[0]) > abs(motion_vec[1]):
                         if motion_vec[0] > 0:
