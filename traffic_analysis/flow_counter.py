@@ -3,9 +3,10 @@ import scipy.linalg
 import cv2
 import math
 
+
 class FlowCounter():
 
-    def __init__(self, num_frames=20):
+    def __init__(self, width, height, num_frames=20):
         self.bbox_history_ls = []
         self.num_frames = num_frames  # number of frames the history flow direction is preserved
         self.flow_direct1 = None    # first flow direction of history bbox, 'right'/'left'/'down'/'up'/'static'
@@ -13,10 +14,12 @@ class FlowCounter():
         self.flow_vec1 = None    # first flow vector of history bbox, (x_mean, y_mean)
         self.flow_vec2 = None    # second flow vector of history bbox, (x_mean, y_mean)
 
-        self.img_width = 1280
-        self.img_height = 720
+        self.img_w = width
+        self.img_h = height
         self.up_counter = 0
         self.down_counter = 0
+        self.right_counter = 0
+        self.left_counter = 0
         self.counter_init = False
         self.blue_polygon_history = []    # history track_ID that hit the blue polygon
         self.yellow_polygon_history = []    # history track_ID that hit the yellow polygon
@@ -69,32 +72,10 @@ class FlowCounter():
             image: image that has been added flow counter info and line-hitting area
         """
 
-        if not self.counter_init:
-            # fill in the blue polygon (assign 1 within the polygon based on the zero array)
-            mask_img = np.zeros((self.img_height, self.img_width), dtype=np.uint8)
-            blue_polygon_corners = np.array([[0, 550], [0, 560], [1279, 560], [1279, 550]], np.int32)
-            blue_polygon = cv2.fillPoly(mask_img, [blue_polygon_corners], color=1)
-            blue_polygon = blue_polygon[:, :, np.newaxis]    # 3D array (h, w, 1)
+        if not self.counter_init and self.flow_direct1:
+            self.fill_polygon()
 
-            # fill in the yellow polygon (assign 2 within the polygon based on the zero array)
-            mask_img = np.zeros((self.img_height, self.img_width), dtype=np.uint8)
-            yellow_polygon_corners = np.array([[0, 561], [0, 571], [1279, 571], [1279, 561]], np.int32)
-            yellow_polygon = cv2.fillPoly(mask_img, [yellow_polygon_corners], color=2)
-            yellow_polygon = yellow_polygon[:, :, np.newaxis]    # 3D array (h, w, 1)
-
-            # mask array for line-hitting judgement，including 2 polygons (element is either 0/1/2)
-            self.polygon_blue_yellow = blue_polygon + yellow_polygon    # 1 stands for blue, 2 stands for yellow
-            self.polygon_blue_yellow = cv2.resize(self.polygon_blue_yellow, (self.img_width, self.img_height))
-
-            # polygon array --> polygon image
-            blue_color_plate = [255, 0, 0]
-            blue_image = np.array(blue_polygon * blue_color_plate, np.uint8)
-            yellow_color_plate = [0, 255, 255]
-            yellow_image = np.array(yellow_polygon * yellow_color_plate, np.uint8)
-            self.color_polygons_image = blue_image + yellow_image
-            self.counter_init = True
-
-        if len(bbox_current_frame) > 0:
+        if len(bbox_current_frame) > 0 and self.counter_init == True:
             for (x1, y1, x2, y2, track_id, speed, motion_vec, motion_dir, within_flow) in bbox_current_frame:
                 # if current track is in the blue polygon
                 if self.polygon_blue_yellow[int((y1+y2)/2), int((x1+x2)/2)] == 1:
@@ -102,8 +83,10 @@ class FlowCounter():
                         self.blue_polygon_history.append(track_id)
                     # if current track was in yellow polygon before, remark the track as an UP vehicle
                     if track_id in self.yellow_polygon_history:
-                        self.up_counter += 1
-                        # print('up count:', self.up_counter, ', up id:', self.yellow_polygon_history)
+                        if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
+                            self.up_counter += 1
+                        else:
+                            self.left_counter += 1
                         # remove the track record in yellow polygon to avoid duplicate count
                         self.yellow_polygon_history.remove(track_id)
 
@@ -113,49 +96,59 @@ class FlowCounter():
                         self.yellow_polygon_history.append(track_id)
                     # if current track was in blue polygon before, remark the track as a DOWN object
                     if track_id in self.blue_polygon_history:
-                        self.down_counter += 1
-                        # print('down count:', self.down_counter, ', down id:', self.blue_polygon_history)
+                        if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
+                            self.down_counter += 1
+                        else:
+                            self.right_counter += 1
                         # remove the track record in blue polygon to avoid duplicate count
                         self.blue_polygon_history.remove(track_id)
 
-        #     # remove history track_ID that is not in current frame
-        #     all_polygon_history = self.blue_polygon_history + self.yellow_polygon_history
-        #     for his_id in all_polygon_history:
-        #         IS_FOUND = False
-        #         for (_, _, _, _, bbox_id, _, _, _, _) in bbox_current_frame:
-        #             if bbox_id == his_id:
-        #                 IS_FOUND = True
-        #             if not IS_FOUND:
-        #                 if his_id in self.yellow_polygon_history:
-        #                     self.yellow_polygon_history.remove(his_id)
-        #                 if his_id in self.blue_polygon_history:
-        #                     self.blue_polygon_history.remove(his_id)
-        #     all_polygon_history.clear()
-        #
-        # # clear the overlap history list if no tracks in current frame
-        # else:
-        #     self.blue_polygon_history.clear()
-        #     self.yellow_polygon_history.clear()
+            #     # remove history track_ID that is not in current frame
+            #     all_polygon_history = self.blue_polygon_history + self.yellow_polygon_history
+            #     for his_id in all_polygon_history:
+            #         IS_FOUND = False
+            #         for (_, _, _, _, bbox_id, _, _, _, _) in bbox_current_frame:
+            #             if bbox_id == his_id:
+            #                 IS_FOUND = True
+            #             if not IS_FOUND:
+            #                 if his_id in self.yellow_polygon_history:
+            #                     self.yellow_polygon_history.remove(his_id)
+            #                 if his_id in self.blue_polygon_history:
+            #                     self.blue_polygon_history.remove(his_id)
+            #     all_polygon_history.clear()
+            #
+            # # clear the overlap history list if no tracks in current frame
+            # else:
+            #     self.blue_polygon_history.clear()
+            #     self.yellow_polygon_history.clear()
 
-        # return the image with flow counter info
-        image = cv2.add(image, self.color_polygons_image)
-        image = cv2.putText(img = image,
-                            text = 'DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter),
-                            org = (int(self.img_width * 0.05), int(self.img_height * 0.05)),
-                            fontFace = cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale = 0.75, color = (255, 255, 255), thickness = 2)
+            # return the image with flow counter info
+            image = cv2.add(image, self.color_polygons_image)
 
-        image = cv2.putText(img=image,
-                            text='flow1: ' + str(self.flow_direct1),
-                            org=(int(self.img_width * 0.3), int(self.img_height * 0.05)),
-                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale=0.75, color=(150, 147, 10), thickness=2)
+            if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
+                image = cv2.putText(img = image,
+                                    text = 'DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter),
+                                    org = (int(self.img_w * 0.05), int(self.img_h * 0.05)),
+                                    fontFace = cv2.FONT_HERSHEY_SIMPLEX,
+                                    fontScale = 0.75, color = (255, 255, 255), thickness = 2)
+            else:
+                image = cv2.putText(img=image,
+                                    text='LEFT: ' + str(self.left_counter) + ' , RIGHT: ' + str(self.right_counter),
+                                    org=(int(self.img_w * 0.05), int(self.img_h * 0.05)),
+                                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                    fontScale=0.75, color=(255, 255, 255), thickness=2)
 
-        image = cv2.putText(img=image,
-                            text='flow2: ' + str(self.flow_direct2),
-                            org=(int(self.img_width * 0.5), int(self.img_height * 0.05)),
-                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                            fontScale=0.75, color=(249, 187, 0), thickness=2)
+            image = cv2.putText(img=image,
+                                text='flow1: ' + str(self.flow_direct1),
+                                org=(int(self.img_w * 0.3), int(self.img_h * 0.05)),
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=0.75, color=(150, 147, 10), thickness=2)
+
+            image = cv2.putText(img=image,
+                                text='flow2: ' + str(self.flow_direct2),
+                                org=(int(self.img_w * 0.5), int(self.img_h * 0.05)),
+                                fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                fontScale=0.75, color=(249, 187, 0), thickness=2)
 
         return image
 
@@ -251,27 +244,27 @@ class FlowCounter():
                         squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2)
                         bbox[7] = self.flow_direct2
                     else:
-                        squared_maha = 100
+                        squared_maha = 1000    # different motion direction
 
                 # if the bbox is new, it has no motion info, therefore mark as 'init'
                 else:
-                    squared_maha = 200
+                    squared_maha = 2000
 
                 # assign in/out according to the Maha distance
-                if squared_maha <= 5.99*10:    # 95% confidence interval belongs to the chi-squared distribution
+                if squared_maha <= 5.99*20:    # 95% confidence interval belongs to the chi-squared distribution
                     bbox.append('in')
-                elif squared_maha == 200:
+                elif squared_maha == 2000:
                     bbox.append('init')
                 else:
                     bbox.append('out')
-                    # print(squared_maha, bbox[7])
+                    print(squared_maha)
 
         return bbox_current_frame
 
 
     def maha_calculator(self, x1, y1, x2, y2, mean, L_matrix):
         """
-        compute sqaured mahalanobis distance
+        compute squared mahalanobis distance
         """
         xc = (x1 + x2) / 2
         yc = (y1 + y2) / 2
@@ -297,3 +290,46 @@ class FlowCounter():
 
         return theta
 
+
+    def fill_polygon(self):
+        """
+        fill in the the polygon of the vehicle counter area
+        """
+
+        # configure the 4 corners points of the blue and yellow polygon
+        if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
+            blue_polygon_corners = np.array([[0, self.img_h*0.7], [0, self.img_h*0.71],
+                                             [self.img_w-1, self.img_h*0.71], [self.img_w-1, self.img_h*0.7]],
+                                            np.int32)
+            yellow_polygon_corners = np.array([[0, self.img_h*0.71+1], [0, self.img_h*0.72],
+                                               [self.img_w-1, self.img_h*0.72], [self.img_w-1, self.img_h*0.71+1]],
+                                              np.int32)
+        else:
+            blue_polygon_corners = np.array([[self.img_w*0.5, 0], [self.img_w*0.5, self.img_h-1],
+                                             [self.img_w*0.51, self.img_h-1], [self.img_w*0.51, 0]],
+                                            np.int32)
+            yellow_polygon_corners = np.array([[self.img_w*0.51+1, 0], [self.img_w*0.51+1, self.img_h-1],
+                                               [self.img_w*0.52, self.img_h-1], [self.img_w*0.52, 0]],
+                                              np.int32)
+
+        # fill in the blue polygon (assign 1 within the polygon based on the zero array)
+        mask_img = np.zeros((self.img_h, self.img_w), dtype=np.uint8)
+        blue_polygon = cv2.fillPoly(mask_img, [blue_polygon_corners], color=1)
+        blue_polygon = blue_polygon[:, :, np.newaxis]    # 3D array (h, w, 1)
+
+        # fill in the yellow polygon (assign 2 within the polygon based on the zero array)
+        mask_img = np.zeros((self.img_h, self.img_w), dtype=np.uint8)
+        yellow_polygon = cv2.fillPoly(mask_img, [yellow_polygon_corners], color=2)
+        yellow_polygon = yellow_polygon[:, :, np.newaxis]    # 3D array (h, w, 1)
+
+        # mask array for line-hitting judgement，including 2 polygons (element is either 0/1/2)
+        self.polygon_blue_yellow = blue_polygon + yellow_polygon    # 1 stands for blue, 2 stands for yellow
+        self.polygon_blue_yellow = cv2.resize(self.polygon_blue_yellow, (self.img_w, self.img_h))
+
+        # polygon array --> polygon image
+        blue_color_plate = [255, 0, 0]
+        blue_image = np.array(blue_polygon * blue_color_plate, np.uint8)
+        yellow_color_plate = [0, 255, 255]
+        yellow_image = np.array(yellow_polygon * yellow_color_plate, np.uint8)
+        self.color_polygons_image = blue_image + yellow_image
+        self.counter_init = True

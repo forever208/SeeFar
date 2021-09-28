@@ -18,7 +18,7 @@ class TrafficAnalyst():
     Detector + Tracker + Dynamic area + Speed estimator
     """
 
-    def __init__(self, model):
+    def __init__(self, model, width, height):
         self.detector = Detector(model)
         self.deepsort = DeepSort(cfg.DEEPSORT.REID_CKPT,
                                  max_dist=cfg.DEEPSORT.MAX_DIST,
@@ -30,8 +30,9 @@ class TrafficAnalyst():
                                  nn_budget=cfg.DEEPSORT.NN_BUDGET,
                                  use_cuda=True)
         self.dynamic_area = DynamicArea()
-        self.flow_counter = FlowCounter()
+        self.flow_counter = FlowCounter(width, height)
         self.speed_estimator = SpeedEstimation()
+
         self.frameCounter = 0
         self.retDict = {'frame': None, 'list_of_ids': None, 'obj_bboxes': []}
 
@@ -118,9 +119,9 @@ class TrafficAnalyst():
         # bbox_within_flow: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
         bbox_within_flow = self.flow_counter.main_road_judge(bboxes_with_speed)
         image = self.flow_counter.flow_counter(image, bbox_within_flow)
-        flow_direct1, flow_direct2 = self.flow_counter.flow_direct1, self.flow_counter.flow_direct2
 
         # plot bbox, id, dynamic area, speed on the image
+        flow_direct1, flow_direct2 = self.flow_counter.flow_direct1, self.flow_counter.flow_direct2
         image = self.plot_bboxes(image, bbox_within_flow, flow_direct1, flow_direct2)
 
         # return management

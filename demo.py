@@ -27,14 +27,13 @@ def parse_args():
 def main():
     TERMINAL = parse_args()
     model = TERMINAL.model
-
-    traffic_analyst = TrafficAnalyst(model)
     cap = cv2.VideoCapture(TERMINAL.video_path)
     fps = int(cap.get(5))
     print('fps of loaded video:', fps)
     print('video width:', int(cap.get(3)))
     print('video height:', int(cap.get(4)))
 
+    traffic_analyst = TrafficAnalyst(model, int(cap.get(3)), int(cap.get(4)))
     t = int(1000 / fps)
     videoWriter = None
 
