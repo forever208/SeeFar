@@ -18,7 +18,7 @@ class TrafficAnalyst():
     Detector + Tracker + Dynamic area + Speed estimator
     """
 
-    def __init__(self, model, width, height):
+    def __init__(self, model, width, height, cam_angle, drone_h, drone_pos, drone_speed, fps):
         self.detector = Detector(model)
         self.deepsort = DeepSort(cfg.DEEPSORT.REID_CKPT,
                                  max_dist=cfg.DEEPSORT.MAX_DIST,
@@ -31,7 +31,7 @@ class TrafficAnalyst():
                                  use_cuda=True)
         self.dynamic_area = DynamicArea()
         self.flow_counter = FlowCounter(width, height)
-        self.speed_estimator = SpeedEstimation()
+        self.speed_estimator = SpeedEstimation(cam_angle, drone_h, drone_pos, drone_speed, fps)
 
         self.frameCounter = 0
         self.retDict = {'frame': None, 'list_of_ids': None, 'obj_bboxes': []}
