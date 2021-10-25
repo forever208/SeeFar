@@ -1,7 +1,7 @@
 from traffic_analyst import TrafficAnalyst
 import cv2
 import argparse
-
+import imutils
 
 def parse_args():
     """
@@ -64,7 +64,7 @@ def main():
         # get result of object tracking, define the size of the video to be saved
         result = traffic_analyst.update(im)
         result = result['frame']    # image that has been added bbox and text, 3D array (h, w, 3)
-        # result = imutils.resize(result, height=500)    # resize the result if you want
+        result = imutils.resize(result, height=1000)    # resize the result if you want
 
         # save video into RESULT_PATH
         if videoWriter is None:

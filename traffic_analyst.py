@@ -72,9 +72,17 @@ class TrafficAnalyst():
             c1, c2 = (x1, y1), (x2, y2)
             cv2.rectangle(image, c1, c2, color, thickness=int(font_thick / 1.5), lineType=cv2.LINE_AA)
             tf = max(font_thick - 1, 1)  # font thickness
-            cv2.putText(image, text='{}-{}'.format(id, speed), org=(c1[0], c1[1] - 2),
+            cv2.putText(image, text='{}-{}km/h'.format(id, speed), org=(c1[0], c1[1] - 2),
                         fontFace=0, fontScale=font_thick / 6, color=color, thickness=int(tf / 1.2),
                         lineType=cv2.LINE_AA)
+
+            if color == (200, 200, 200):
+                image = cv2.putText(img=image,
+                                    text='Insufficient number of vehicles',
+                                    org=(int(image.shape[1] * 0.3), int(image.shape[0] * 0.5)),
+                                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                    fontScale=image.shape[1] / 1000, color=(255, 255, 255),
+                                    thickness=int(image.shape[0] / 300))
 
         # # plot dynamic area on the image
         # if tl is not None:
@@ -117,10 +125,10 @@ class TrafficAnalyst():
 
         """4. Do flow detection and flow counter (detect the main road, count the traffic flow)"""
         # bbox_within_flow: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
-        bbox_within_flow = self.flow_counter.main_road_judge(bboxes_with_speed)
+        image, bbox_within_flow = self.flow_counter.main_road_judge(image, bboxes_with_speed)
         image = self.flow_counter.flow_counter(image, bbox_within_flow)
 
-        # plot bbox, id, dynamic area, speed on the image
+        """5. Plot bbox, id, dynamic area, speed on the image"""
         flow_direct1, flow_direct2 = self.flow_counter.flow_direct1, self.flow_counter.flow_direct2
         image = self.plot_bboxes(image, bbox_within_flow, flow_direct1, flow_direct2)
 

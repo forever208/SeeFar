@@ -7,7 +7,10 @@ import math
 class FlowCounter():
 
     def __init__(self, width, height, num_frames=20):
-        self.bbox_history_ls = []
+        self.history_frame_ls = []
+        self.history_bbox_ls = []
+        self.bbox_flow2_backup = []
+        self.frames_counter = 0
         self.num_frames = num_frames  # number of frames the history flow direction is preserved
         self.flow_direct1 = None    # first flow direction of history bbox, 'right'/'left'/'down'/'up'/'static'
         self.flow_direct2 = None    # second flow direction of history bbox, 'right'/'left'/'down'/'up'/'static'
@@ -27,40 +30,51 @@ class FlowCounter():
         self.color_polygons_image = None
 
 
-    def main_road_judge(self, bbox_current_frame):
+    def main_road_judge(self, image, bbox_current_frame):
         """
         1. define the two main flow directions
         2. judge that each bbox is in/out of the main flow via Mahalanobis distance
-        @param bbox_current_frame: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction], []...[]]
+        3. append 'in/out/init/few' on the tail of each bbox
+        @param bbox_current_frame: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction], []...[]]
         @return:
-            bbox_current_frame: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
+            bbox_current_frame: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out/init/few], []...[]]
         """
 
+        self.frames_counter += 1
         if len(bbox_current_frame) >= 4:
-            if len(self.bbox_history_ls) == self.num_frames-1:
-                # get all bbox of previous 19 frames
-                bbox_before = []
-                for i in range(0, self.num_frames-1):
-                    for his_bbox in self.bbox_history_ls[i]:
-                        bbox_before.append(his_bbox)
+            if len(self.history_frame_ls) == self.num_frames:
 
                 """define the two main flow directions and split history_bbox into 2 groups by the flow directions"""
-                bbox_flow1, bbox_flow2 = self.flow_direct(bbox_before)    # nested list [[xc, yc], []...[]]
+                image, bbox_flow1, bbox_flow2 = self.flow_direct(image, self.history_bbox_ls)
 
-                """judge if bboxes are in/out of the main flow via Mahalanobis distance"""
+                """judge that if bboxes are in/out of the main flow via Mahalanobis distance"""
                 bbox_current_frame = self.maha_distance(bbox_flow1, bbox_flow2, bbox_current_frame)
-                del self.bbox_history_ls[0]
             else:
                 for cur_bbox in bbox_current_frame:
                     cur_bbox.append('init')
-            self.bbox_history_ls.append(bbox_current_frame)    # add current frame bbox into the bbox history
+                image = self.plot_sampling(image)
+
+            # to maintain 10 history frames, delete the oldest frame before adding a new frame
+            if len(self.history_frame_ls) == self.num_frames and self.frames_counter % 10 == 0:
+                del self.history_frame_ls[0]
+            # add current frame into history frame for every 10 frames
+            if self.frames_counter % 10 == 0:
+                self.history_frame_ls.append(bbox_current_frame)
+
+                # gather historical bbox from previous 10 frames
+                if len(self.history_frame_ls) == self.num_frames:
+                    self.history_bbox_ls = []
+                    for i in range(0, self.num_frames):
+                        for his_bbox in self.history_frame_ls[i]:
+                            if his_bbox[8] == 'in' or his_bbox[8] == 'init':
+                                self.history_bbox_ls.append(his_bbox)
 
         # mark as 'few' when there is less than 4 bbox in current frame
         else:
             for cur_bbox in bbox_current_frame:
                 cur_bbox.append('few')
 
-        return bbox_current_frame
+        return image, bbox_current_frame
 
 
     def flow_counter(self, image, bbox_current_frame):
@@ -122,80 +136,96 @@ class FlowCounter():
             #     self.blue_polygon_history.clear()
             #     self.yellow_polygon_history.clear()
 
-            # return the image with flow counter info
+            # return the image with flow counter info and historical bbox info
             image = cv2.add(image, self.color_polygons_image)
 
             if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
-                image = cv2.putText(img = image,
-                                    text = 'DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter),
-                                    org = (int(self.img_w * 0.05), int(self.img_h * 0.05)),
-                                    fontFace = cv2.FONT_HERSHEY_SIMPLEX,
-                                    fontScale = 0.75, color = (255, 255, 255), thickness = 2)
+                image = cv2.putText(img=image,
+                                    text='DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter),
+                                    org=(int(self.img_w * 0.1), int(self.img_h * 0.05)),
+                                    fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                                    fontScale=self.img_w/2000, color=(255, 255, 255), thickness=int(self.img_w/500))
             else:
                 image = cv2.putText(img=image,
                                     text='LEFT: ' + str(self.left_counter) + ' , RIGHT: ' + str(self.right_counter),
-                                    org=(int(self.img_w * 0.05), int(self.img_h * 0.05)),
+                                    org=(int(self.img_w * 0.1), int(self.img_h * 0.05)),
                                     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                    fontScale=0.75, color=(255, 255, 255), thickness=2)
+                                    fontScale=self.img_w/2000, color=(255, 255, 255), thickness=int(self.img_w/500))
 
             image = cv2.putText(img=image,
-                                text='flow1: ' + str(self.flow_direct1),
-                                org=(int(self.img_w * 0.3), int(self.img_h * 0.05)),
+                                text='Flow1: ' + str(self.flow_direct1),
+                                org=(int(self.img_w * 0.4), int(self.img_h * 0.05)),
                                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                fontScale=0.75, color=(150, 147, 10), thickness=2)
+                                fontScale=self.img_w/2000, color=(150, 147, 10), thickness=int(self.img_w/500))
 
             image = cv2.putText(img=image,
-                                text='flow2: ' + str(self.flow_direct2),
-                                org=(int(self.img_w * 0.5), int(self.img_h * 0.05)),
+                                text='Flow2: ' + str(self.flow_direct2),
+                                org=(int(self.img_w * 0.6), int(self.img_h * 0.05)),
                                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                fontScale=0.75, color=(249, 187, 0), thickness=2)
+                                fontScale=self.img_w/2000, color=(249, 187, 0), thickness=int(self.img_w/500))
 
         return image
 
 
-    def flow_direct(self, history_bbox):
+    def flow_direct(self, image, history_bbox):
         """
-        given the previous 19 frames bbox
-        1. find the 2 flow directions, assign the directions to the class attributes
-        2. split history_bbox into 2 groups based on the flow directions
-        3. compute the mean motion vectors for 2 flows
+        given the previous 19 frames bbox:
+            1. find the 2 flow directions, assign the directions to the class attributes
+            2. split history_bbox into 2 groups based on the flow directions
+            3. compute the mean motion vectors for 2 flows
         @param history_bbox: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction], []...[]]
         @return:
             bbox_flow1: the bbox of the first main flow, [[xc, yc], []...[]]
-            bbox_flow2: the bbox of the second main flow, [[xc, yc], []...[]]
+            bbox_flow2: the bbox of the second main flow, [[xc, yc], []...[]], might also be empty list []
         """
 
-        # get the direction list for all history bbox
+        # 1. find the 2 main flow directions ('right'/'left'/'down'/'up'/'static'/'none')
         bbox_direction_ls = []
-        for bbox in history_bbox:
+        for bbox in history_bbox:    # get the direction list for all history bbox
             if bbox[7]:
                 bbox_direction_ls.append(bbox[7])
 
-        # 1. find the 2 main flow directions ('right'/'left'/'down'/'up'/'static')
         self.flow_direct1 = max(bbox_direction_ls, key=bbox_direction_ls.count)
         while self.flow_direct1 in bbox_direction_ls:
             bbox_direction_ls.remove(self.flow_direct1)
-        self.flow_direct2 = max(bbox_direction_ls, key=bbox_direction_ls.count)
+        self.flow_direct2 = max(bbox_direction_ls, key=bbox_direction_ls.count) if bbox_direction_ls else None
 
         # 2. split history_bbox into 2 groups based on the flow directions
         bbox_flow1, bbox_flow2 = [], []
         motion_vec_flow1, motion_vec_flow2 = [], []
         for bbox in history_bbox:
             if bbox[7]:
+                # valid historical bbox must have the same direction with the 2 main flows
                 if bbox[7] == self.flow_direct1:
                     bbox_flow1.append([(bbox[0]+bbox[2])/2, (bbox[1]+bbox[3])/2])
                     motion_vec_flow1.append(bbox[6])
-                elif bbox[7] == self.flow_direct2:
+                elif self.flow_direct2 and bbox[7] == self.flow_direct2:
                     bbox_flow2.append([(bbox[0]+bbox[2])/2, (bbox[1]+bbox[3])/2])
                     motion_vec_flow2.append(bbox[6])
 
-        # 3. calculate the mean motion vector for the 2 flows
+        # if too few historical bbox in flow2, use the backup bbox to compute Maha distanace
+        if len(bbox_flow2) >= 2 * self.num_frames:
+            self.bbox_flow2_backup = bbox_flow2
+        if len(bbox_flow2) < 2 * self.num_frames and self.bbox_flow2_backup:
+            bbox_flow2 = self.bbox_flow2_backup
+
+        # 3. calculate the mean motion vector for the 2 main flows
         x1_mean, y1_mean = np.array(motion_vec_flow1).mean(axis=0)
-        x2_mean, y2_mean = np.array(motion_vec_flow2).mean(axis=0)
+        x2_mean, y2_mean = np.array(motion_vec_flow2).mean(axis=0) if motion_vec_flow2 else (None, None)
         self.flow_vec1 = (x1_mean, y1_mean)
         self.flow_vec2 = (x2_mean, y2_mean)
 
-        return bbox_flow1, bbox_flow2
+        # 4. plot the historical bbox as a scatter for the 2 main flows
+        for bbox in bbox_flow1:
+            image = cv2.circle(img=image,
+                               center=(int(bbox[0]), int(bbox[1])), radius=int(self.img_w/600),
+                               color=(150, 147, 10), thickness=int(self.img_w/1000))
+        for bbox in bbox_flow2:
+            image = cv2.circle(img=image,
+                               center=(int(bbox[0]), int(bbox[1])), radius=int(self.img_w/600),
+                               color=(249, 187, 0), thickness=int(self.img_w/1000))
+
+        return image, bbox_flow1, bbox_flow2
 
 
     def maha_distance(self, bbox_flow1, bbox_flow2, bbox_current_frame):
@@ -208,56 +238,62 @@ class FlowCounter():
             bbox_current_frame: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out], []...[]]
         """
 
-        # mean and covariance
-        flow1_array = np.array(bbox_flow1, dtype=float)
-        flow2_array = np.array(bbox_flow2, dtype=float)
-        mean1, mean2 = np.mean(flow1_array.T, axis=1), np.mean(flow2_array.T, axis=1)
-        cov1, cov2 = np.cov(flow1_array.T), np.cov(flow2_array.T)  # cov = L * L.trans
+        # compute mean and covariance
+        flow1_array, flow2_array = np.array(bbox_flow1, dtype=float), np.array(bbox_flow2, dtype=float)
+        flow2_num_samples = flow2_array.T.shape[1] if flow2_array.any() else 0
 
-        # TODO: Matrix is not positive definite
-        L1, L2 = np.linalg.cholesky(cov1), np.linalg.cholesky(cov2)
+        # if the number of samples in flow2 is too little, don't compute Maha distance for the flow2
+        if flow2_num_samples >= self.num_frames - 1:
+            mean1, mean2 = np.mean(flow1_array.T, axis=1), np.mean(flow2_array.T, axis=1)
+            cov1, cov2 = np.cov(flow1_array.T), np.cov(flow2_array.T)    # cov = L * L.trans
+            L1, L2 = np.linalg.cholesky(cov1), np.linalg.cholesky(cov2)
+        else:
+            mean1, mean2 = np.mean(flow1_array.T, axis=1), None
+            cov1, cov2 = np.cov(flow1_array.T), None    # cov = L * L.trans
+            L1, L2 = np.linalg.cholesky(cov1), None
 
+        # compute Mahala distance between each current bbox and history flow centre, then assign 'in/out/init'
         for bbox in bbox_current_frame:
-            # compute Mahala distance between current bbox and history flow centre
             if len(bbox) == 8:
                 # if bbox has the same motion direction with flow 1
                 if bbox[7] == self.flow_direct1:
                     squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean1, L1)
 
                 # if bbox has the same motion direction with flow 2
-                elif bbox[7] == self.flow_direct2:
-                    squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2)
+                elif self.flow_direct2 and bbox[7] == self.flow_direct2:
+                    squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2) if L2 is not None else 1000
 
-                # the motion direction (up/down/left/right) is rough calculation
-                # especially when vehicle is too far or move along the diagonal
-                # Therefore,
-                # we need to further compute the angle between motion vector and flow motion vector
-                elif bbox[5]:
+                # the motion direction (up/down/left/right) is inaccurate when car is too far or move along the diagonal
+                # Therefore, we need to further compute the angle between motion vector and flow motion vector
+                elif bbox[7]:
                     theta1 = self.angle_of_vectors(bbox[6], self.flow_vec1)
-                    theta2 = self.angle_of_vectors(bbox[6], self.flow_vec2)
+                    theta2 = self.angle_of_vectors(bbox[6], self.flow_vec2) if L2 is not None else 180
+                    if bbox[7] == 'static':
+                        squared_maha = 1000
                     # if the angle between motion vector and the flow_1 < 45 degree, compute the maha distance
-                    if theta1 < theta2 and theta1 < 45:
+                    elif theta1 < theta2 and theta1 < 45:
                         squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean1, L1)
                         bbox[7] = self.flow_direct1
                     # if the angle between motion vector and the flow_2 < 45 degree, compute the maha distance
                     elif theta2 < theta1 and theta2 < 45:
                         squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2)
                         bbox[7] = self.flow_direct2
+                    # different motion direction
                     else:
-                        squared_maha = 1000    # different motion direction
+                        squared_maha = 1000
 
                 # if the bbox is new, it has no motion info, therefore mark as 'init'
                 else:
                     squared_maha = 2000
 
                 # assign in/out according to the Maha distance
-                if squared_maha <= 5.99*20:    # 95% confidence interval belongs to the chi-squared distribution
+                if squared_maha <= 5.99*2:    # 95% confidence interval belongs to the chi-squared distribution
                     bbox.append('in')
                 elif squared_maha == 2000:
                     bbox.append('init')
                 else:
                     bbox.append('out')
-                    print(squared_maha)
+                    print('outlier distance: ', squared_maha)
 
         return bbox_current_frame
 
@@ -298,11 +334,11 @@ class FlowCounter():
 
         # configure the 4 corners points of the blue and yellow polygon
         if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
-            blue_polygon_corners = np.array([[0, self.img_h*0.7], [0, self.img_h*0.71],
-                                             [self.img_w-1, self.img_h*0.71], [self.img_w-1, self.img_h*0.7]],
+            blue_polygon_corners = np.array([[0, self.img_h*0.5], [0, self.img_h*0.51],
+                                             [self.img_w-1, self.img_h*0.51], [self.img_w-1, self.img_h*0.5]],
                                             np.int32)
-            yellow_polygon_corners = np.array([[0, self.img_h*0.71+1], [0, self.img_h*0.72],
-                                               [self.img_w-1, self.img_h*0.72], [self.img_w-1, self.img_h*0.71+1]],
+            yellow_polygon_corners = np.array([[0, self.img_h*0.51+1], [0, self.img_h*0.52],
+                                               [self.img_w-1, self.img_h*0.52], [self.img_w-1, self.img_h*0.51+1]],
                                               np.int32)
         else:
             blue_polygon_corners = np.array([[self.img_w*0.5, 0], [self.img_w*0.5, self.img_h-1],
@@ -333,3 +369,17 @@ class FlowCounter():
         yellow_image = np.array(yellow_polygon * yellow_color_plate, np.uint8)
         self.color_polygons_image = blue_image + yellow_image
         self.counter_init = True
+
+
+    def plot_sampling(self, image):
+        """
+        plot 'vehicle flow is under sampling' on the image at the beginning of the model
+        """
+        image = cv2.putText(img=image,
+                            text='vehicle flow is under sampling',
+                            org=(int(self.img_w * 0.3), int(self.img_h * 0.5)),
+                            fontFace=cv2.FONT_HERSHEY_SIMPLEX,
+                            fontScale=self.img_w / 1000, color=(0, 155, 238),
+                            thickness=int(self.img_h / 300))
+
+        return image

@@ -21,11 +21,11 @@ class DeepSort(object):
         self.min_confidence = min_confidence    # 0.3 as default
         self.nms_max_overlap = nms_max_overlap    # 1 stands for no NMS
 
-        # class instance, extract the features of a bbox
+        # CNN instance, extract the features of a bbox
         self.extractor = Extractor(model_path, use_cuda=use_cuda)
 
         max_cosine_distance = max_dist    # default as 0.2, threshold of the cosine distance between appearance features
-        nn_budget = 100    # max number of feature history, delete history that exceed 100
+        nn_budget = nn_budget    # max number of feature history, delete history that exceed 100
 
         # key class instance, find the closest detection for each track (cosine/euclidean distance)
         metric = NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)

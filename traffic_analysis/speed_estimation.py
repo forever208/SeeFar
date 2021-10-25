@@ -14,10 +14,9 @@ class SpeedEstimation:
         self.param_init = False
         self.img_w = None
         self.img_h = None
-        self.cam_FOV = (94 * math.pi) / 180    # 94 degree, the FOV of the camera
         self.cam_angle = (cam_angle * math.pi) / 180  # 10 degree, the angle of the camera regarding to down view angle
-        self.cam_focal_len = 3.61    # mm, the focal length of the camera
-        self.cam_sensor_w = 6.17    # mm, the actual size of the camera sensor
+        self.cam_focal_len = 10.294    # mm, the focal length of the camera
+        self.cam_sensor_w = 13.2    # mm, the actual size of the camera sensor
         self.cam_w_pixel = None    # mm/pixel, camera_sensor_width / pixel_width, means the size of a pixel in real world
         self.drone_h = drone_h    # meter, the real height of the drone (camera)
         self.drone_pos = drone_pos
@@ -157,7 +156,7 @@ class SpeedEstimation:
         for i, (x1, y1, x2, y2, id, speed, motion_vec) in enumerate(current_frame_bbox):
             if motion_vec:
                 # valid motion: magnitude of motion vector has to be >= 0.1 pixel/frame
-                if (abs(motion_vec[0]) + abs(motion_vec[1])) >= 0.1*self.num_frames:
+                if (abs(motion_vec[0]) + abs(motion_vec[1])) >= 0.5 * self.num_frames:
                     # x displacement > y displacement
                     if abs(motion_vec[0]) > abs(motion_vec[1]):
                         if motion_vec[0] > 0:
