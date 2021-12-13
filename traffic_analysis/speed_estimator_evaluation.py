@@ -1,105 +1,130 @@
+"""
+test the performance for the speed estimation model on 8 videos
+
+each video has its own config, change the following function and parameter according to the test video:
+    1. within_arrow_area_video_1()
+    2. self.road_arrow_pixels =
+"""
+
+
 import cv2
 import numpy as np
+import math
 
 
 class SpeedEstimationEvaluator():
 
     def __init__(self, fps):
         self.speed_record = {}
+        self.xy_record = {}
         self.id_being_measured = []
         self.evaluation_results = []
 
         self.fps = fps
         self.road_arrow_size = 6    # the gt size of the road arrow is 6 meters
+        self.road_arrow_pixels = 370    # how many pixel does the arrow occupy in the image [370, 370]
 
 
-    def plot_road_arrows(self, image):
-
-        # plot the road arrows by red rectangular, make sure the coordinates are correct
-        red = (4, 19, 186)
-        cv2.rectangle(image, (1950, 140), (2320, 300),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-        cv2.rectangle(image, (1950, 350), (2320, 500),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-        cv2.rectangle(image, (1950, 570), (2320, 710),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-        cv2.rectangle(image, (1950, 780), (2320, 910),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-
-        cv2.rectangle(image, (1950, 1150), (2320, 1310),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-        cv2.rectangle(image, (1950, 1380), (2320, 1520),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-        cv2.rectangle(image, (1950, 1590), (2320, 1730),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-        cv2.rectangle(image, (1950, 1800), (2320, 1940),
-                      color=red, thickness=2, lineType=cv2.LINE_AA)
-
-
-    def test_speed(self, bboxes):
+    def test_speed(self, image, bboxes):
         """
         test the performance of speed estimator based on the road arrow prior
         @param bboxes: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, "in/out"]
-        @return:
         """
 
         for (x1, y1, x2, y2, id, speed, motion_vec, motion_dir, within_flow) in bboxes:
+            if speed:
+                # if the car move into the evaluation area, keep record its speed for subsequent speed calculation
+                if self.within_arrow_area_video_3(image, x1, y1, x2, y2):
+                    if id not in self.id_being_measured:
+                        self.id_being_measured.append(id)
+                        self.speed_record[id] = [speed]
+                        self.xy_record[id] = [[(x1+x2)/2, (y1+y2)/2]]
+                    else:
+                        self.speed_record[id].append(speed)
+                        self.xy_record[id].append([(x1+x2)/2, (y1+y2)/2])
 
-            # if the car move into the evaluation area, keep record its speed for subsequent speed calculation
-            if self.within_arrow_area(x1, y1, x2, y2):
-                if id not in self.id_being_measured:
-                    self.id_being_measured.append(id)
-                    self.speed_record[id] = [speed]
+                # if the car used to occur on the arrow area and now has moved out of this area
                 else:
-                    self.speed_record[id].append(speed)
-
-            # if the car used to occur on the arrow area and now has moved out of this area
-            else:
-                if id in self.id_being_measured:
-                    if self.speed_record[id][0]:
+                    if id in self.id_being_measured:
 
                         # compute the gt speed
+                        xy_first = self.xy_record[id][0]
+                        xy_last = self.xy_record[id][-1]
+                        pixel_displacement = math.sqrt((xy_last[0]-xy_first[0])**2 + (xy_last[1]-xy_first[1])**2)
+                        gt_displacement = pixel_displacement * (self.road_arrow_size/self.road_arrow_pixels)    # meters
                         frame_interval = len(self.speed_record[id])
-                        gt_speed = self.road_arrow_size / (frame_interval/self.fps)    # m/s
+                        gt_speed = gt_displacement / ((frame_interval-1)/self.fps)    # m/s
                         gt_speed = gt_speed * 3.6    # km/h
 
-                        # final evaluation results
+                        # evaluation results
                         avg_speed = abs(np.mean(self.speed_record[id]))
-                        speed_error = abs(gt_speed - avg_speed) / 2
+                        speed_error = abs(gt_speed - avg_speed)
                         error_rate = speed_error / gt_speed
                         self.evaluation_results.append([id, gt_speed, avg_speed, speed_error, error_rate])
                         # print('car_ID: ', id)
-                        # print('ground_truth speed: ', int(gt_speed))
+                        # print('ground_truth speed: ', gt_speed)
                         # print('estimated speed: ', avg_speed)
                         # print(' ')
 
-                        # remove speed record in dictionary and id record in list
+                        # remove speed and coordinate records in dictionaries
                         self.id_being_measured.remove(id)
                         del self.speed_record[id]
+                        del self.xy_record[id]
 
-    def within_arrow_area(self, x1, y1, x2, y2):
+
+    def within_arrow_area_video_1(self, image, x1, y1, x2, y2):
         """
         judge that if the bbox is inside the road arrow area
         """
 
-        xc = (x1 + x2) / 2
-        yc = (y1 + y2) / 2
-        if 1950 <= xc <= 2320:
-            if 140 <= yc <= 300:
+        # plot the road arrows by red rectangular, make sure the coordinates are correct
+        cv2.rectangle(image, (1950, 140), (2320, 1940), color=(4, 19, 186), thickness=2, lineType=cv2.LINE_AA)
+
+        xc, yc = (x1+x2)/2, (y1+y2)/2
+        if 1950 <= xc <= 2320:    # the arrow is 370 pixels long
+            if 140 <= yc <= 1940:
                 ret = True
-            elif 350 <= yc <= 500:
+            else:
+                ret = False
+        else:
+            ret = False
+
+        return ret
+
+
+    def within_arrow_area_video_2(self, image, x1, y1, x2, y2):
+        """
+        judge that if the bbox is inside the road arrow area
+        """
+
+        # plot the road arrows by red rectangular, make sure the coordinates are correct
+        cv2.rectangle(image, (1070, 740), (3050, 1100), color=(4, 19, 186), thickness=2, lineType=cv2.LINE_AA)
+
+        xc, yc = (x1+x2)/2, (y1+y2)/2
+        if 740 <= yc <= 1100:    # the arrow is 370 pixels long
+            if 1070 <= xc <= 3050:
                 ret = True
-            elif 570 <= yc <= 710:
-                ret = True
-            elif 780 <= yc <= 910:
-                ret = True
-            elif 1150 <= yc <= 1310:
-                ret = True
-            elif 1380 <= yc <= 1520:
-                ret = True
-            elif 1590 <= yc <= 1730:
-                ret = True
-            elif 1800 <= yc <= 1940:
+            else:
+                ret = False
+        else:
+            ret = False
+
+        return ret
+
+
+    def within_arrow_area_video_3(self, image, x1, y1, x2, y2):
+        """
+        judge that if the bbox is inside the road arrow area
+        """
+
+        # plot the road arrows by red rectangular, make sure the coordinates are correct
+        arrow_polygon_corners = np.array([[1250, 200], [1180, 850], [1495, 850], [1530, 200]], np.int32)
+        cv2.polylines(image, [arrow_polygon_corners], isClosed=True, color=(4, 19, 186), thickness=2)
+        # cv2.rectangle(image, (1070, 740), (3050, 1100), color=(4, 19, 186), thickness=2, lineType=cv2.LINE_AA)
+
+        xc, yc = (x1+x2)/2, (y1+y2)/2
+        if 740 <= yc <= 1100:    # the arrow is 370 pixels long
+            if 1070 <= xc <= 3050:
                 ret = True
             else:
                 ret = False

@@ -293,7 +293,7 @@ class FlowCounter():
                     bbox.append('init')
                 else:
                     bbox.append('out')
-                    print('outlier distance: ', squared_maha)
+                    # print('outlier distance: ', squared_maha)
 
         return bbox_current_frame
 
@@ -334,18 +334,18 @@ class FlowCounter():
 
         # configure the 4 corners points of the blue and yellow polygon
         if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
-            blue_polygon_corners = np.array([[0, self.img_h*0.5], [0, self.img_h*0.51],
-                                             [self.img_w-1, self.img_h*0.51], [self.img_w-1, self.img_h*0.5]],
+            blue_polygon_corners = np.array([[0, self.img_h*0.49], [0, self.img_h*0.51],
+                                             [self.img_w-1, self.img_h*0.51], [self.img_w-1, self.img_h*0.49]],
                                             np.int32)
-            yellow_polygon_corners = np.array([[0, self.img_h*0.51+1], [0, self.img_h*0.52],
-                                               [self.img_w-1, self.img_h*0.52], [self.img_w-1, self.img_h*0.51+1]],
+            yellow_polygon_corners = np.array([[0, self.img_h*0.51+1], [0, self.img_h*0.53],
+                                               [self.img_w-1, self.img_h*0.53], [self.img_w-1, self.img_h*0.51+1]],
                                               np.int32)
         else:
-            blue_polygon_corners = np.array([[self.img_w*0.5, 0], [self.img_w*0.5, self.img_h-1],
+            blue_polygon_corners = np.array([[self.img_w*0.495, 0], [self.img_w*0.495, self.img_h-1],
                                              [self.img_w*0.51, self.img_h-1], [self.img_w*0.51, 0]],
                                             np.int32)
             yellow_polygon_corners = np.array([[self.img_w*0.51+1, 0], [self.img_w*0.51+1, self.img_h-1],
-                                               [self.img_w*0.52, self.img_h-1], [self.img_w*0.52, 0]],
+                                               [self.img_w*0.525, self.img_h-1], [self.img_w*0.525, 0]],
                                               np.int32)
 
         # fill in the blue polygon (assign 1 within the polygon based on the zero array)
