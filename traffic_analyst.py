@@ -4,9 +4,9 @@ import numpy as np
 from detector import Detector
 from deep_sort.utils.parser import get_config
 from deep_sort.deep_sort import DeepSort
-from traffic_analysis.dynamic_area import DynamicArea
 from traffic_analysis.speed_estimation import SpeedEstimation
 from traffic_analysis.flow_counter import FlowCounter
+from traffic_analysis.speed_estimator_evaluation import SpeedEstimationEvaluator
 
 
 cfg = get_config()
@@ -18,7 +18,7 @@ class TrafficAnalyst():
     Detector + Tracker + Dynamic area + Speed estimator
     """
 
-    def __init__(self, model, width, height, cam_angle, drone_h, drone_pos, drone_speed, fps):
+    def __init__(self, model, width, height, cam_angle, drone_h, drone_pos, drone_speed, fps, test_mode):
         self.detector = Detector(model)
         self.deepsort = DeepSort(cfg.DEEPSORT.REID_CKPT,
                                  max_dist=cfg.DEEPSORT.MAX_DIST,
@@ -29,9 +29,10 @@ class TrafficAnalyst():
                                  n_init=cfg.DEEPSORT.N_INIT,
                                  nn_budget=cfg.DEEPSORT.NN_BUDGET,
                                  use_cuda=True)
-        self.dynamic_area = DynamicArea()
         self.flow_counter = FlowCounter(width, height)
         self.speed_estimator = SpeedEstimation(cam_angle, drone_h, drone_pos, drone_speed, fps)
+        self.speed_estimation_evaluater = SpeedEstimationEvaluator(fps)
+        self.test_mode = test_mode
 
         self.frameCounter = 0
         self.retDict = {'frame': None, 'list_of_ids': None, 'obj_bboxes': []}
@@ -41,7 +42,7 @@ class TrafficAnalyst():
         """
         plot all bbox and count the traffic flow
         @param image: original video frame, 3D array (h, w, 3)
-        @param bboxes: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, in/out],
+        @param bboxes: [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction, "in/out"],
         @return:
             image: image that has been added bbox, text and dynamic area, 3D array (h, w, 3)
         """
@@ -65,17 +66,17 @@ class TrafficAnalyst():
             elif within_flow == 'init':
                 color = (0, 155, 238)    # vehicle flow is being initialised: orange (BGR channel)
             else:
-                raise Exception("flow attribute is not defined")
+                raise Exception("the flow attribute is not defined")
 
-
-            # draw bbox, id, speed
+            # plot bbox, id, speed
             c1, c2 = (x1, y1), (x2, y2)
             cv2.rectangle(image, c1, c2, color, thickness=int(font_thick / 1.5), lineType=cv2.LINE_AA)
             tf = max(font_thick - 1, 1)  # font thickness
-            cv2.putText(image, text='{}-{}km/h'.format(id, speed), org=(c1[0], c1[1] - 2),
+            cv2.putText(image, text='{}, {}km/h'.format(id, speed), org=(c1[0], c1[1] - 2),
                         fontFace=0, fontScale=font_thick / 6, color=color, thickness=int(tf / 1.2),
                         lineType=cv2.LINE_AA)
 
+            # plot notification if there are few cars
             if color == (200, 200, 200):
                 image = cv2.putText(img=image,
                                     text='Insufficient number of vehicles',
@@ -83,12 +84,6 @@ class TrafficAnalyst():
                                     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                                     fontScale=image.shape[1] / 1000, color=(255, 255, 255),
                                     thickness=int(image.shape[0] / 300))
-
-        # # plot dynamic area on the image
-        # if tl is not None:
-        #     polygon = np.concatenate((tl, tr, br, bl), axis=0)
-        #     polygon = polygon.reshape((-1, 1, 2))
-        #     image = cv2.polylines(image, np.int32([polygon]), isClosed=True, color=(255, 255, 0), thickness=2)
 
         return image
 
@@ -128,14 +123,22 @@ class TrafficAnalyst():
         image, bbox_within_flow = self.flow_counter.main_road_judge(image, bboxes_with_speed)
         image = self.flow_counter.flow_counter(image, bbox_within_flow)
 
-        """5. Plot bbox, id, dynamic area, speed on the image"""
+        """5. Plot bbox, id, speed, historical bbox on the image"""
         flow_direct1, flow_direct2 = self.flow_counter.flow_direct1, self.flow_counter.flow_direct2
         image = self.plot_bboxes(image, bbox_within_flow, flow_direct1, flow_direct2)
+
+        """6. test the performance of speed estimator """
+        if self.test_mode:
+            self.speed_estimation_evaluater.plot_road_arrows(image)
+            self.speed_estimation_evaluater.test_speed(bbox_within_flow)
+            eval_results = self.speed_estimation_evaluater.evaluation_results
+            print('num_of_cars: ', len(eval_results))
+            print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
+            print(np.mean(np.array(eval_results), axis=0))
 
         # return management
         self.frameCounter += 1
         self.retDict['frame'] = image    # image that has been added all info, 3D array (h, w, 3)
         self.retDict['obj_bboxes'] = bbox_within_flow    # [[x1, y1, x2, y2, id, speed, m_vec, m_dir, in/out], []...[]]
 
-        # test
         return self.retDict

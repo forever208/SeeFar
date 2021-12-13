@@ -54,7 +54,7 @@ class FlowCounter():
                     cur_bbox.append('init')
                 image = self.plot_sampling(image)
 
-            # to maintain 10 history frames, delete the oldest frame before adding a new frame
+            """historical bbox management (sparse sampling) """
             if len(self.history_frame_ls) == self.num_frames and self.frames_counter % 10 == 0:
                 del self.history_frame_ls[0]
             # add current frame into history frame for every 10 frames

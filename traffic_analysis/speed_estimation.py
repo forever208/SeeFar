@@ -15,7 +15,7 @@ class SpeedEstimation:
         self.img_w = None
         self.img_h = None
         self.cam_angle = (cam_angle * math.pi) / 180  # 10 degree, the angle of the camera regarding to down view angle
-        self.cam_focal_len = 10.294    # mm, the focal length of the camera
+        self.cam_focal_len = 28/2.72    # mm, the camera focal length (35mm Format Equivalent 28 mm/crop factor)
         self.cam_sensor_w = 13.2    # mm, the actual size of the camera sensor
         self.cam_w_pixel = None    # mm/pixel, camera_sensor_width / pixel_width, means the size of a pixel in real world
         self.drone_h = drone_h    # meter, the real height of the drone (camera)
@@ -113,22 +113,12 @@ class SpeedEstimation:
         pixel_dis = math.sqrt(delta_x ** 2 + delta_y ** 2)
         motion_vec = (delta_x, delta_y)
 
-        # compute the angle from image plane
-        w_to_center = abs((x_new + x_old) / 2 - (self.img_w / 2)) * self.cam_w_pixel  # mm
-        h_to_center = ((self.img_h - (y_new+y_old)/2) - (self.img_h/2)) * self.cam_w_pixel  # mm
-        phi = math.atan(h_to_center / self.cam_focal_len)    # can be positive or negative
-
-        h2 = math.sqrt(self.cam_focal_len ** 2 + h_to_center ** 2)
-        beta = math.atan(w_to_center / h2)    # can only be positive
-        d = math.sqrt(h2 ** 2 + w_to_center ** 2)
-
-        # compute the distance between the drone and tracked car in real world
-        H2 = self.drone_h / math.cos(self.cam_angle + phi)    # meter
-        D = H2 / math.cos(beta)    # meter
-        GSD = ((D * 1000) / d) * self.cam_w_pixel    # mm/pixel
+        # compute GSD
+        w, h = (x_new + x_old) / 2, (y_new + y_old) / 2
+        GSD = self.GSD_calculater(w, h)
 
         # compute the speed of the car
-        speed = (pixel_dis * GSD * 0.001) / ((t_interval-1) / self.fps)  # m/s
+        speed = (pixel_dis * GSD * 0.001) / ((t_interval-1) / self.fps)    # m/s
         speed = round(speed * 0.001 * 3600, 1)    # m/s --> km/h
 
         # add direction for car speed, compensate the speed by considering the speed of the drone
@@ -175,4 +165,28 @@ class SpeedEstimation:
                 current_frame_bbox[i].append('')
 
         return current_frame_bbox
+
+
+    def GSD_calculater(self, w, h):
+        """
+        compute the GSD baed on the geometry of the camera imaging system
+        @param w: x coordinate of the bbox
+        @param h: y coordinate of the bbox
+        @return:
+            GSD: float number
+        """
+        # compute the angle from image plane
+        w_to_center = abs(w - (self.img_w / 2)) * self.cam_w_pixel    # mm, positive
+        h_to_center = (self.img_h / 2 - h) * self.cam_w_pixel    # mm, positive or negative
+        phi = math.atan(h_to_center / self.cam_focal_len)    # can be positive or negative
+        h2 = math.sqrt(self.cam_focal_len ** 2 + h_to_center ** 2)
+        beta = math.atan(w_to_center / h2)    # can only be positive
+        d = math.sqrt(h2 ** 2 + w_to_center ** 2)
+
+        # compute the distance between the drone and tracked car in real world
+        H2 = self.drone_h / math.cos(self.cam_angle + phi)    # meter
+        D = H2 / math.cos(beta)    # meter
+        GSD = ((D * 1000) / d) * self.cam_w_pixel    # mm/pixel
+
+        return GSD
 

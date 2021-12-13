@@ -18,7 +18,7 @@ def parse_args():
                         help='the model name of object detector',
                         default='yolov5m', type=str)
     parser.add_argument('--cam_angle', dest='cam_angle',
-                        help='the tile angle of the camera, vary from 0 to 90 degree',
+                        help='the tile angle of the camera, vary from 0 (top view) to 90 degree (horizontal)',
                         default=0, type=int)
     parser.add_argument('--drone_h', dest='drone_h',
                         help='meters, the height of the flying drone',
@@ -29,6 +29,9 @@ def parse_args():
     parser.add_argument('--drone_speed', dest='drone_speed',
                         help='km/h, the speed of the flying drone',
                         default=0, type=int)
+    parser.add_argument('--test_mode', dest='test_mode',
+                        help='whether activate the test_mode for speed estimator and flow analysor',
+                        action='store_true')
     parser.add_argument('--colab', dest='use_colab',
                         help='whether use colab',
                         action='store_true')
@@ -43,6 +46,7 @@ def main():
     drone_h = TERMINAL.drone_h
     drone_pos = TERMINAL.drone_pos
     drone_speed = TERMINAL.drone_speed
+    test = TERMINAL.test_mode
 
     cap = cv2.VideoCapture(TERMINAL.video_path)
     fps = int(cap.get(5))
@@ -52,7 +56,7 @@ def main():
     print('video width:', video_w)
     print('video height:', video_h)
 
-    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_pos, drone_speed, fps)
+    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_pos, drone_speed, fps, test)
     t = int(1000 / fps)
     videoWriter = None
 

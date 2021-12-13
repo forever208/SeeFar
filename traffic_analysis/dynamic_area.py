@@ -1,3 +1,7 @@
+"""
+old version of flow analysor, has been deprecated
+"""
+
 import numpy as np
 import math
 
