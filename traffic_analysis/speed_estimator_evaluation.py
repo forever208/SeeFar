@@ -62,7 +62,7 @@ class SpeedEstimationEvaluator():
                             speed_error = abs(gt_speed - avg_speed)
                             error_rate = speed_error / gt_speed
                             self.evaluation_results.append([id, gt_speed, avg_speed, speed_error, error_rate])
-                            # print('car_ID:', id, ' ground_truth speed:', gt_speed, ' estimated speed:', avg_speed)
+                            # print('ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
 
                             # remove speed and coordinate records in dictionaries
                             self.id_being_measured.remove(id)

@@ -129,12 +129,11 @@ class TrafficAnalyst():
 
         """6. test the performance of speed estimator """
         if self.test_mode:
-            # self.speed_estimation_evaluater.plot_road_arrows_video2(image)
             self.speed_estimation_evaluater.test_speed(image, bbox_within_flow)
             eval_results = self.speed_estimation_evaluater.evaluation_results
-            print('num_of_cars: ', len(eval_results))
-            print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
-            print(np.mean(np.array(eval_results), axis=0))
+            # print('num_of_cars: ', len(eval_results))
+            # print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
+            # print(np.mean(np.array(eval_results), axis=0))
 
         # return management
         self.frameCounter += 1
