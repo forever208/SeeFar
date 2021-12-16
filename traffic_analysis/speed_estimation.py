@@ -7,7 +7,7 @@ class SpeedEstimation:
     The vehicle speed is estimated by the geometry of camera imaging
     """
 
-    def __init__(self, cam_angle, drone_h, drone_pos, drone_speed, fps):
+    def __init__(self, cam_angle, drone_h, drone_speed, fps):
         self.bbox_history = []
         self.speed_info_his = {}    # speed info of 100 history tracks, {track_id: (motion_vec, speed)...}
         self.num_frames = 10    # number of frames when the car displacement is calculated
@@ -19,7 +19,6 @@ class SpeedEstimation:
         self.cam_sensor_w = 13.2    # mm, the actual size of the camera sensor
         self.cam_w_pixel = None    # mm/pixel, camera_sensor_width / pixel_width, means the size of a pixel in real world
         self.drone_h = drone_h    # meter, the real height of the drone (camera)
-        self.drone_pos = drone_pos
         self.drone_speed = drone_speed    # km/h, the speed of the drone
         self.fps = fps    # frame rate of the video
 

@@ -23,9 +23,6 @@ def parse_args():
     parser.add_argument('--drone_h', dest='drone_h',
                         help='meters, the height of the flying drone',
                         default=100, type=int)
-    parser.add_argument('--drone_pos', dest='drone_pos',
-                        help='the position of the drone, above or side',
-                        default='above', type=str)
     parser.add_argument('--drone_speed', dest='drone_speed',
                         help='km/h, the speed of the flying drone',
                         default=0, type=int)
@@ -44,7 +41,6 @@ def main():
     model = TERMINAL.model
     cam_angle = TERMINAL.cam_angle
     drone_h = TERMINAL.drone_h
-    drone_pos = TERMINAL.drone_pos
     drone_speed = TERMINAL.drone_speed
     test = TERMINAL.test_mode
 
@@ -56,14 +52,19 @@ def main():
     print('video width:', video_w)
     print('video height:', video_h)
 
-    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_pos, drone_speed, fps, test)
+    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_speed, fps, test)
     t = int(1000 / fps)
     videoWriter = None
+    num = 1
 
     while True:
         _, im = cap.read()    # read a frame from video
         if im is None:
             break
+
+        # num += 1
+        # if num % fps == 0:
+        #     cv2.imwrite('./video/images/1_' + str(num) + '.jpg', im)
 
         # get result of object tracking, define the size of the video to be saved
         result = traffic_analyst.update(im)
