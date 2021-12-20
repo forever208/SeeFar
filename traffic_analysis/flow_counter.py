@@ -156,7 +156,7 @@ class FlowCounter():
                                 text='Flow1: ' + str(self.flow_direct1),
                                 org=(int(self.img_w * 0.4), int(self.img_h * 0.05)),
                                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                fontScale=self.img_w/2000, color=(150, 147, 10), thickness=int(self.img_w/500))
+                                fontScale=self.img_w/2000, color=(27, 227, 94), thickness=int(self.img_w/500))
 
             image = cv2.putText(img=image,
                                 text='Flow2: ' + str(self.flow_direct2),
@@ -219,7 +219,7 @@ class FlowCounter():
         for bbox in bbox_flow1:
             image = cv2.circle(img=image,
                                center=(int(bbox[0]), int(bbox[1])), radius=int(self.img_w/600),
-                               color=(150, 147, 10), thickness=int(self.img_w/1000))
+                               color=(27, 227, 94), thickness=int(self.img_w/1000))
         for bbox in bbox_flow2:
             image = cv2.circle(img=image,
                                center=(int(bbox[0]), int(bbox[1])), radius=int(self.img_w/600),

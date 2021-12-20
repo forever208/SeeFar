@@ -43,6 +43,7 @@ def main():
     drone_h = TERMINAL.drone_h
     drone_speed = TERMINAL.drone_speed
     test = TERMINAL.test_mode
+    video_num = int(TERMINAL.video_path[8])
 
     cap = cv2.VideoCapture(TERMINAL.video_path)
     fps = int(cap.get(5))
@@ -52,7 +53,7 @@ def main():
     print('video width:', video_w)
     print('video height:', video_h)
 
-    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_speed, fps, test)
+    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_speed, fps, test, video_num)
     t = int(1000 / fps)
     videoWriter = None
     num = 1
@@ -64,7 +65,7 @@ def main():
 
         # num += 1
         # if num % fps == 0:
-        #     cv2.imwrite('./video/images/1_' + str(num) + '.jpg', im)
+        #     cv2.imwrite('./video/images2/8_' + str(num) + '.jpg', im)
 
         # get result of object tracking, define the size of the video to be saved
         result = traffic_analyst.update(im)

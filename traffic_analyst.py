@@ -18,7 +18,7 @@ class TrafficAnalyst():
     Detector + Tracker + Dynamic area + Speed estimator
     """
 
-    def __init__(self, model, width, height, cam_angle, drone_h, drone_speed, fps, test_mode):
+    def __init__(self, model, width, height, cam_angle, drone_h, drone_speed, fps, test_mode, video_num):
         self.detector = Detector(model)
         self.deepsort = DeepSort(cfg.DEEPSORT.REID_CKPT,
                                  max_dist=cfg.DEEPSORT.MAX_DIST,
@@ -31,7 +31,7 @@ class TrafficAnalyst():
                                  use_cuda=True)
         self.flow_counter = FlowCounter(width, height)
         self.speed_estimator = SpeedEstimation(cam_angle, drone_h, drone_speed, fps)
-        self.speed_estimation_evaluater = SpeedEstimationEvaluator(fps, cam_angle, drone_speed)
+        self.speed_estimation_evaluater = SpeedEstimationEvaluator(fps, cam_angle, drone_speed, video_num)
 
         self.test_mode = test_mode    # True/False, whether launch the test mode
         self.frameCounter = 0
@@ -54,7 +54,7 @@ class TrafficAnalyst():
             # set different color for each tracked object
             if within_flow == 'in':
                 if motion_dir == flow_direct1:
-                    color = (150, 147, 10)    # bbox in flow1: green (BGR channel)
+                    color = (27, 227, 94)    # bbox in flow1: green (BGR channel)
                 elif motion_dir == flow_direct2:
                     color = (249, 187, 0)    # bbox in flow2: blue (BGR channel)
                 else:
@@ -131,9 +131,9 @@ class TrafficAnalyst():
         if self.test_mode:
             self.speed_estimation_evaluater.test_speed(image, bbox_within_flow)
             eval_results = self.speed_estimation_evaluater.evaluation_results
-            # print('num_of_cars: ', len(eval_results))
-            # print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
-            # print(np.mean(np.array(eval_results), axis=0))
+            print('num_of_cars: ', len(eval_results))
+            print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
+            print(np.mean(np.array(eval_results), axis=0))
 
         # return management
         self.frameCounter += 1

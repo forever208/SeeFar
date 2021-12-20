@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="946cb8a8-ee24-4f33-9e10-1ef3311267ac" name="berzelius1.nsc.liu.se">
+        <fileTransfer rootFolder="/proj/ihorse_2021/users/x_manni" accessType="SFTP" host="berzelius1.nsc.liu.se" port="22" sshConfigId="d13c3d31-4707-4ae8-916c-38634c9dd8fe" sshConfig="x_manni@berzelius1.nsc.liu.se:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

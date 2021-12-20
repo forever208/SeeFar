@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="berzelius1.nsc.liu.se" id="d13c3d31-4707-4ae8-916c-38634c9dd8fe" port="22" nameFormat="DESCRIPTIVE" username="x_manni" />
+    </configs>
+  </component>
+</project>

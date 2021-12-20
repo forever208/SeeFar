@@ -10,7 +10,7 @@ import math
 
 class SpeedEstimationEvaluator():
 
-    def __init__(self, fps, cam_angle, drone_speed):
+    def __init__(self, fps, cam_angle, drone_speed, video_num):
         self.speed_record = {}
         self.xy_record = {}
         self.id_being_measured = []
@@ -19,7 +19,7 @@ class SpeedEstimationEvaluator():
         self.cam_angle = cam_angle
         self.drone_speed = drone_speed
         self.fps = fps
-        self.video_number = 3    # from 1 to 8
+        self.video_number = video_num    # the number of the test video, vary from 1 to 8
         self.road_arrow_size = 6    # the gt size of the road arrow is 6 meters
         self.road_arrow_pixels = 370    # the arrow is 370-pixel long in the video 1,2
 
@@ -54,6 +54,8 @@ class SpeedEstimationEvaluator():
                             pixel_displacement = math.sqrt((xy_last[0]-xy_first[0])**2 + (xy_last[1]-xy_first[1])**2)
                             gt_displacement = pixel_displacement * (self.road_arrow_size/self.road_arrow_pixels)    # m
                             frame_interval = len(self.speed_record[id])
+                            if frame_interval == 1:
+                                continue
                             gt_speed = gt_displacement / ((frame_interval-1)/self.fps)    # m/s
                             gt_speed = gt_speed * 3.6    # km/h
 
@@ -71,9 +73,18 @@ class SpeedEstimationEvaluator():
 
                 # for video 3, 4, 5, 6, 7, 8
                 elif self.cam_angle > 0:
-                    # skip ID 4, 47, 48, 57, 78 cars in video_3, because they are miss-detected in the arrow area
+                    # skip these cars, because they are miss-detected for a few frames in the arrow area
                     if self.video_number == 3 and id in [4, 47, 48, 57, 78]:
                         continue
+                    # skip ID 4, 47, 48, 57, 78 cars in video_3, because they are miss-detected in the arrow area
+                    elif self.video_number == 5 and id in [6, 54, 57, 79, 98]:
+                        continue
+                    elif self.video_number == 6 and id in [1, 58, 89, 90]:
+                        continue
+                    elif self.video_number == 7 and id in [5, 22, 59, 68, 90, 91, 94]:
+                        continue
+
+
                     within_arrow_area, A,B,C,D,E,F,G,H = self.within_arrow_area_video_3_to_8(image, x1, y1, x2, y2)
                     # if the car move into the evaluation area, keep record its speed for subsequent speed calculation
                     if within_arrow_area:
@@ -117,6 +128,8 @@ class SpeedEstimationEvaluator():
                             # compute the gt speed
                             gt_displacement = pixel_displacement * (self.road_arrow_size/self.road_arrow_pixels)    # m
                             frame_interval = len(self.speed_record[id])
+                            if frame_interval == 1:
+                                continue
                             gt_speed = gt_displacement / ((frame_interval-1)/self.fps)    # m/s
                             gt_speed = gt_speed * 3.6 + self.drone_speed    # km/h
                             gt_speed = abs(gt_speed)    # ignore the speed direction when doing the evaluation
@@ -126,6 +139,10 @@ class SpeedEstimationEvaluator():
                             speed_error = abs(gt_speed - avg_speed)
                             error_rate = speed_error / gt_speed
                             self.evaluation_results.append([id, gt_speed, avg_speed, speed_error, error_rate])
+                            # if speed_error > 6:
+                            #     print('* ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
+                            # elif speed_error > 4:
+                            #     print('ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
                             # print('ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
 
                             # remove speed and coordinate records in dictionaries
@@ -144,7 +161,6 @@ class SpeedEstimationEvaluator():
             A, D = (1950, 140), (2320, 1940)
         else:
             A, D = (1070, 740), (3050, 1100)
-
 
         # plot the road arrows by red rectangular, make sure the coordinates are correct
         cv2.rectangle(image, A, D, color=(4, 19, 186), thickness=2, lineType=cv2.LINE_AA)
@@ -166,8 +182,26 @@ class SpeedEstimationEvaluator():
         judge that if the bbox is inside the road arrow area, parameter only applicable for our video 3
         @param x1, x2, y1, y2: the coordinates of the bbox
         """
-        A, B, C, D = [1250, 200], [1180, 850], [1495, 850], [1530, 200]    # 4 corners of the arrow area
-        E, F, G, H = [2505, 1050], [2570, 1937], [2955, 1937], [2840, 1050]    # 4 corners of the arrow area
+
+        if self.video_number == 3:
+            A, B, C, D = [1250, 200], [1180, 850], [1495, 850], [1530, 200]    # 4 corners of the arrow area
+            E, F, G, H = [2505, 1050], [2570, 1937], [2955, 1937], [2840, 1050]    # 4 corners of the arrow area
+        elif self.video_number == 5:
+            A, B, C, D = [1362, 577], [1307, 1175], [1618, 1180], [1654, 582]
+            E, F, G, H = [2018, 1330], [2019, 2109], [2379, 2110], [2341, 1335]
+        elif self.video_number == 6:
+            A, B, C, D = [1086, 76], [1046, 827], [1420, 826], [1439, 72]
+            E, F, G, H = [1947, 1004], [1982, 1914], [2392, 1913], [2335, 1000]
+        elif self.video_number == 7:
+            A, B, C, D = [1250, 458], [1197, 1032], [1520, 1029], [1525, 454]
+            E, F, G, H = [1901, 1171], [1900, 1895], [2280, 1884], [2228, 1167]
+            # A, B, C, D = [1250, 458], [1197, 1036], [1505, 1031], [1531, 453]
+            # E, F, G, H = [1901, 1171], [1900, 1895], [2259, 1886], [2208, 1165]
+        elif self.video_number == 8:
+            A, B, C, D = [1198, 492], [1087, 1071], [1448, 1071], [1508, 495]
+            E, F, G, H = [1903, 1229], [1876, 2096], [2334, 2102], [2283, 1235]
+        else:
+            raise Exception("the test video is not defined")
 
         # plot the road arrows by red rectangular, make sure the coordinates are correct
         arrow_polygon_corners = np.array([A, B, C, D], np.int32)    # 280-->315
