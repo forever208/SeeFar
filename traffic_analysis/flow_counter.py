@@ -43,7 +43,6 @@ class FlowCounter():
         self.frames_counter += 1
         if len(bbox_current_frame) >= 4:
             if len(self.history_frame_ls) == self.num_frames:
-
                 """define the two main flow directions and split history_bbox into 2 groups by the flow directions"""
                 image, bbox_flow1, bbox_flow2 = self.flow_direct(image, self.history_bbox_ls)
 
@@ -57,11 +56,12 @@ class FlowCounter():
             """historical bbox management (sparse sampling) """
             if len(self.history_frame_ls) == self.num_frames and self.frames_counter % 10 == 0:
                 del self.history_frame_ls[0]
+
             # add current frame into history frame for every 10 frames
             if self.frames_counter % 10 == 0:
                 self.history_frame_ls.append(bbox_current_frame)
 
-                # gather historical bbox from previous 10 frames
+                # collect historical bbox (within the 2 flows) from previous 10 frames
                 if len(self.history_frame_ls) == self.num_frames:
                     self.history_bbox_ls = []
                     for i in range(0, self.num_frames):
@@ -86,36 +86,39 @@ class FlowCounter():
             image: image that has been added flow counter info and line-hitting area
         """
 
+        """initialise the polygon"""
         if not self.counter_init and self.flow_direct1:
             self.fill_polygon()
 
+        """count the car density for the 2 main flows"""
         if len(bbox_current_frame) > 0 and self.counter_init == True:
             for (x1, y1, x2, y2, track_id, speed, motion_vec, motion_dir, within_flow) in bbox_current_frame:
-                # if current track is in the blue polygon
-                if self.polygon_blue_yellow[int((y1+y2)/2), int((x1+x2)/2)] == 1:
-                    if track_id not in self.blue_polygon_history:
-                        self.blue_polygon_history.append(track_id)
-                    # if current track was in yellow polygon before, remark the track as an UP vehicle
-                    if track_id in self.yellow_polygon_history:
-                        if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
-                            self.up_counter += 1
-                        else:
-                            self.left_counter += 1
-                        # remove the track record in yellow polygon to avoid duplicate count
-                        self.yellow_polygon_history.remove(track_id)
+                if within_flow == 'in':
+                    # if current track is in the blue polygon
+                    if self.polygon_blue_yellow[int((y1+y2)/2), int((x1+x2)/2)] == 1:
+                        if track_id not in self.blue_polygon_history:
+                            self.blue_polygon_history.append(track_id)
+                        # if current track was in yellow polygon before, remark the track as an UP vehicle
+                        if track_id in self.yellow_polygon_history:
+                            if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
+                                self.up_counter += 1
+                            else:
+                                self.left_counter += 1
+                            # remove the track record in yellow polygon to avoid duplicate count
+                            self.yellow_polygon_history.remove(track_id)
 
-                # if current bbox is in the yellow polygon
-                elif self.polygon_blue_yellow[int((y1+y2)/2), int((x1+x2)/2)] == 2:
-                    if track_id not in self.yellow_polygon_history:
-                        self.yellow_polygon_history.append(track_id)
-                    # if current track was in blue polygon before, remark the track as a DOWN object
-                    if track_id in self.blue_polygon_history:
-                        if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
-                            self.down_counter += 1
-                        else:
-                            self.right_counter += 1
-                        # remove the track record in blue polygon to avoid duplicate count
-                        self.blue_polygon_history.remove(track_id)
+                    # if current bbox is in the yellow polygon
+                    elif self.polygon_blue_yellow[int((y1+y2)/2), int((x1+x2)/2)] == 2:
+                        if track_id not in self.yellow_polygon_history:
+                            self.yellow_polygon_history.append(track_id)
+                        # if current track was in blue polygon before, remark the track as a DOWN object
+                        if track_id in self.blue_polygon_history:
+                            if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
+                                self.down_counter += 1
+                            else:
+                                self.right_counter += 1
+                            # remove the track record in blue polygon to avoid duplicate count
+                            self.blue_polygon_history.remove(track_id)
 
             #     # remove history track_ID that is not in current frame
             #     all_polygon_history = self.blue_polygon_history + self.yellow_polygon_history
@@ -136,7 +139,7 @@ class FlowCounter():
             #     self.blue_polygon_history.clear()
             #     self.yellow_polygon_history.clear()
 
-            # return the image with flow counter info and historical bbox info
+            """return the image with flow counter info and historical bbox info"""
             image = cv2.add(image, self.color_polygons_image)
 
             if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
@@ -157,7 +160,6 @@ class FlowCounter():
                                 org=(int(self.img_w * 0.4), int(self.img_h * 0.05)),
                                 fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                                 fontScale=self.img_w/2000, color=(27, 227, 94), thickness=int(self.img_w/500))
-
             image = cv2.putText(img=image,
                                 text='Flow2: ' + str(self.flow_direct2),
                                 org=(int(self.img_w * 0.6), int(self.img_h * 0.05)),
@@ -172,7 +174,8 @@ class FlowCounter():
         given the previous 19 frames bbox:
             1. find the 2 flow directions, assign the directions to the class attributes
             2. split history_bbox into 2 groups based on the flow directions
-            3. compute the mean motion vectors for 2 flows
+            3. if too few historical bbox in flow1 or flow 2, create backup bbox for later Maha distance
+            4. compute the mean motion vectors for 2 flows
         @param history_bbox: nested list, [[x1, y1, x2, y2, id, speed, motion_vec, motion_direction], []...[]]
         @return:
             bbox_flow1: the bbox of the first main flow, [[xc, yc], []...[]]
@@ -203,11 +206,11 @@ class FlowCounter():
                     bbox_flow2.append([(bbox[0]+bbox[2])/2, (bbox[1]+bbox[3])/2])
                     motion_vec_flow2.append(bbox[6])
 
-        # if too few historical bbox in flow2, use the backup bbox to compute Maha distanace
-        if len(bbox_flow2) >= 2 * self.num_frames:
-            self.bbox_flow2_backup = bbox_flow2
-        if len(bbox_flow2) < 2 * self.num_frames and self.bbox_flow2_backup:
-            bbox_flow2 = self.bbox_flow2_backup
+        # 3. if too few historical bbox in flow2, use the backup bbox to compute Maha distance
+        if len(bbox_flow2) >= 1.5 * self.num_frames:
+            self.bbox_flow2_backup = bbox_flow2    # update the history backup
+        if len(bbox_flow2) < 1.5 * self.num_frames and self.bbox_flow2_backup:
+            bbox_flow2 = self.bbox_flow2_backup    # use the history backup
 
         # 3. calculate the mean motion vector for the 2 main flows
         x1_mean, y1_mean = np.array(motion_vec_flow1).mean(axis=0)
@@ -239,10 +242,12 @@ class FlowCounter():
         """
 
         # compute mean and covariance
+        num_bbox_flow1, num_bbox_flow2 = len(bbox_flow1), len(bbox_flow2)
+        print('num_bbox in hist flow1: ', len(bbox_flow1), '  num_bbox in hist flow1: ', len(bbox_flow2))
         flow1_array, flow2_array = np.array(bbox_flow1, dtype=float), np.array(bbox_flow2, dtype=float)
         flow2_num_samples = flow2_array.T.shape[1] if flow2_array.any() else 0
 
-        # if the number of samples in flow2 is too little, don't compute Maha distance for the flow2
+        # if the number of samples in flow2 is too few, don't compute Maha distance for flow2
         if flow2_num_samples >= self.num_frames - 1:
             mean1, mean2 = np.mean(flow1_array.T, axis=1), np.mean(flow2_array.T, axis=1)
             cov1, cov2 = np.cov(flow1_array.T), np.cov(flow2_array.T)    # cov = L * L.trans
@@ -255,14 +260,17 @@ class FlowCounter():
         # compute Mahala distance between each current bbox and history flow centre, then assign 'in/out/init'
         for bbox in bbox_current_frame:
             if len(bbox) == 8:
+                sparsity_factor = 1
                 # if bbox has the same motion direction with flow 1
                 if bbox[7] == self.flow_direct1:
                     squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean1, L1)
-
+                    if num_bbox_flow1 < (self.num_frames * 8):    # if num_bbox < 160, use adaptive factor for Maha distance
+                        sparsity_factor = (self.num_frames * 8) / num_bbox_flow1
                 # if bbox has the same motion direction with flow 2
                 elif self.flow_direct2 and bbox[7] == self.flow_direct2:
                     squared_maha = self.maha_calculator(bbox[0], bbox[1], bbox[2], bbox[3], mean2, L2) if L2 is not None else 1000
-
+                    if num_bbox_flow2 < (self.num_frames * 8):
+                        sparsity_factor = (self.num_frames * 8) / num_bbox_flow2
                 # the motion direction (up/down/left/right) is inaccurate when car is too far or move along the diagonal
                 # Therefore, we need to further compute the angle between motion vector and flow motion vector
                 elif bbox[7]:
@@ -281,13 +289,12 @@ class FlowCounter():
                     # different motion direction
                     else:
                         squared_maha = 1000
-
                 # if the bbox is new, it has no motion info, therefore mark as 'init'
                 else:
                     squared_maha = 2000
 
                 # assign in/out according to the Maha distance
-                if squared_maha <= 5.99*2:    # 95% confidence interval belongs to the chi-squared distribution
+                if squared_maha <= 5.99 * sparsity_factor:    # 95% confidence interval of chi-squared distribution
                     bbox.append('in')
                 elif squared_maha == 2000:
                     bbox.append('init')
@@ -334,18 +341,18 @@ class FlowCounter():
 
         # configure the 4 corners points of the blue and yellow polygon
         if self.flow_direct1 == 'up' or self.flow_direct1 == 'down':
-            blue_polygon_corners = np.array([[0, self.img_h*0.49], [0, self.img_h*0.51],
-                                             [self.img_w-1, self.img_h*0.51], [self.img_w-1, self.img_h*0.49]],
+            blue_polygon_corners = np.array([[0, self.img_h*0.48], [0, self.img_h*0.51],
+                                             [self.img_w-1, self.img_h*0.51], [self.img_w-1, self.img_h*0.48]],
                                             np.int32)
-            yellow_polygon_corners = np.array([[0, self.img_h*0.51+1], [0, self.img_h*0.53],
-                                               [self.img_w-1, self.img_h*0.53], [self.img_w-1, self.img_h*0.51+1]],
+            yellow_polygon_corners = np.array([[0, self.img_h*0.51+1], [0, self.img_h*0.54],
+                                               [self.img_w-1, self.img_h*0.54], [self.img_w-1, self.img_h*0.51+1]],
                                               np.int32)
         else:
-            blue_polygon_corners = np.array([[self.img_w*0.495, 0], [self.img_w*0.495, self.img_h-1],
+            blue_polygon_corners = np.array([[self.img_w*0.49, 0], [self.img_w*0.49, self.img_h-1],
                                              [self.img_w*0.51, self.img_h-1], [self.img_w*0.51, 0]],
                                             np.int32)
             yellow_polygon_corners = np.array([[self.img_w*0.51+1, 0], [self.img_w*0.51+1, self.img_h-1],
-                                               [self.img_w*0.525, self.img_h-1], [self.img_w*0.525, 0]],
+                                               [self.img_w*0.53, self.img_h-1], [self.img_w*0.53, 0]],
                                               np.int32)
 
         # fill in the blue polygon (assign 1 within the polygon based on the zero array)

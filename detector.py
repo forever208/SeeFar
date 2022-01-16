@@ -88,9 +88,9 @@ class Detector():
 
                     # remove bbox near the boarder(edge) to reduce ID switch
                     org_h, org_w = im.shape[0], im.shape[1]
-                    if x1<0.02*org_w or x2>0.98*org_w:
+                    if x1<0.01*org_w or x2>0.99*org_w:
                         continue
-                    if y1<0.02*org_h or y2>0.98*org_h:
+                    if y1<0.01*org_h or y2>0.99*org_h:
                         continue
 
                     pred_boxes.append((x1, y1, x2, y2, lbl, conf))

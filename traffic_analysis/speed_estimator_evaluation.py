@@ -76,12 +76,12 @@ class SpeedEstimationEvaluator():
                     # skip these cars, because they are miss-detected for a few frames in the arrow area
                     if self.video_number == 3 and id in [4, 47, 48, 57, 78]:
                         continue
-                    # skip ID 4, 47, 48, 57, 78 cars in video_3, because they are miss-detected in the arrow area
-                    elif self.video_number == 5 and id in [6, 54, 57, 79, 98]:
+                    #  arrow area [6, 54, 57, 79, 98]
+                    elif self.video_number == 5 and id in [6, 22, 53, 79, 99]:
                         continue
                     elif self.video_number == 6 and id in [1, 58, 89, 90]:
                         continue
-                    elif self.video_number == 7 and id in [5, 22, 59, 68, 90, 91, 94]:
+                    elif self.video_number == 7 and id in [1, 56, 70, 91, 94, 102,]:
                         continue
 
 
@@ -139,10 +139,10 @@ class SpeedEstimationEvaluator():
                             speed_error = abs(gt_speed - avg_speed)
                             error_rate = speed_error / gt_speed
                             self.evaluation_results.append([id, gt_speed, avg_speed, speed_error, error_rate])
-                            # if speed_error > 6:
-                            #     print('* ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
-                            # elif speed_error > 4:
-                            #     print('ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
+                            if speed_error > 6:
+                                print('* ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
+                            elif speed_error > 4:
+                                print('ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
                             # print('ID: {}  gt speed: {:.1f}  estimated speed: {:.1f}'.format(id, gt_speed, avg_speed))
 
                             # remove speed and coordinate records in dictionaries
@@ -195,8 +195,6 @@ class SpeedEstimationEvaluator():
         elif self.video_number == 7:
             A, B, C, D = [1250, 458], [1197, 1032], [1520, 1029], [1525, 454]
             E, F, G, H = [1901, 1171], [1900, 1895], [2280, 1884], [2228, 1167]
-            # A, B, C, D = [1250, 458], [1197, 1036], [1505, 1031], [1531, 453]
-            # E, F, G, H = [1901, 1171], [1900, 1895], [2259, 1886], [2208, 1165]
         elif self.video_number == 8:
             A, B, C, D = [1198, 492], [1087, 1071], [1448, 1071], [1508, 495]
             E, F, G, H = [1903, 1229], [1876, 2096], [2334, 2102], [2283, 1235]

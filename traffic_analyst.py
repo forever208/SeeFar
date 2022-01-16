@@ -127,13 +127,13 @@ class TrafficAnalyst():
         flow_direct1, flow_direct2 = self.flow_counter.flow_direct1, self.flow_counter.flow_direct2
         image = self.plot_bboxes(image, bbox_within_flow, flow_direct1, flow_direct2)
 
-        """6. test the performance of speed estimator """
+        """6. test the performance of speed estimator if specify the test_mode """
         if self.test_mode:
             self.speed_estimation_evaluater.test_speed(image, bbox_within_flow)
             eval_results = self.speed_estimation_evaluater.evaluation_results
-            print('num_of_cars: ', len(eval_results))
-            print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
-            print(np.mean(np.array(eval_results), axis=0))
+            # print('num_of_cars: ', len(eval_results))
+            # print('[        xxx,   avg_gt_speed, pred_speed, avg_error, avg_error_rate]')
+            # print(np.mean(np.array(eval_results), axis=0))
 
         # return management
         self.frameCounter += 1

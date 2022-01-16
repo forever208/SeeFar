@@ -1,18 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="x_manni@berzelius1.nsc.liu.se:22" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="berzelius1.nsc.liu.se" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="berzelius1.nsc.liu.se">
         <serverdata>
           <mappings>
             <mapping deploy="proj/ihorse_2021/users/x_manni/METRICS" local="$PROJECT_DIR$" web="/" />
-          </mappings>
-        </serverdata>
-      </paths>
-      <paths name="x_manni@berzelius1.nsc.liu.se:22">
-        <serverdata>
-          <mappings>
-            <mapping deploy="/proj/ihorse_2021/users/x_manni/METRICS" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
