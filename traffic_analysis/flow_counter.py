@@ -147,13 +147,13 @@ class FlowCounter():
                                     text='DOWN: ' + str(self.down_counter) + ' , UP: ' + str(self.up_counter),
                                     org=(int(self.img_w * 0.1), int(self.img_h * 0.05)),
                                     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                    fontScale=self.img_w/2000, color=(255, 255, 255), thickness=int(self.img_w/500))
+                                    fontScale=self.img_w/2000, color=(1, 1, 1), thickness=int(self.img_w/500))
             else:
                 image = cv2.putText(img=image,
                                     text='LEFT: ' + str(self.left_counter) + ' , RIGHT: ' + str(self.right_counter),
                                     org=(int(self.img_w * 0.1), int(self.img_h * 0.05)),
                                     fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-                                    fontScale=self.img_w/2000, color=(255, 255, 255), thickness=int(self.img_w/500))
+                                    fontScale=self.img_w/2000, color=(1, 1, 1), thickness=int(self.img_w/500))
 
             image = cv2.putText(img=image,
                                 text='Flow1: ' + str(self.flow_direct1),
@@ -243,7 +243,7 @@ class FlowCounter():
 
         # compute mean and covariance
         num_bbox_flow1, num_bbox_flow2 = len(bbox_flow1), len(bbox_flow2)
-        print('num_bbox in hist flow1: ', len(bbox_flow1), '  num_bbox in hist flow1: ', len(bbox_flow2))
+        # print('num_bbox in hist flow1: ', len(bbox_flow1), '  num_bbox in hist flow1: ', len(bbox_flow2))
         flow1_array, flow2_array = np.array(bbox_flow1, dtype=float), np.array(bbox_flow2, dtype=float)
         flow2_num_samples = flow2_array.T.shape[1] if flow2_array.any() else 0
 

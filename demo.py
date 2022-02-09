@@ -1,4 +1,4 @@
-from traffic_analyst import TrafficAnalyst
+from See_Far import SeeFar
 import cv2
 import argparse
 import imutils
@@ -43,7 +43,7 @@ def main():
     drone_h = TERMINAL.drone_h
     drone_speed = TERMINAL.drone_speed
     test = TERMINAL.test_mode
-    video_num = int(TERMINAL.video_path[8])
+    video_num = int(TERMINAL.video_path[8]) if TERMINAL.test_mode else None
 
     cap = cv2.VideoCapture(TERMINAL.video_path)
     fps = int(cap.get(5))
@@ -53,7 +53,7 @@ def main():
     print('video width:', video_w)
     print('video height:', video_h)
 
-    traffic_analyst = TrafficAnalyst(model, video_w, video_h, cam_angle, drone_h, drone_speed, fps, test, video_num)
+    see_far = SeeFar(model, video_w, video_h, cam_angle, drone_h, drone_speed, fps, test, video_num)
     t = int(1000 / fps)
     videoWriter = None
     num = 1
@@ -68,7 +68,7 @@ def main():
         #     cv2.imwrite('./video/images2/8_' + str(num) + '.jpg', im)
 
         # get result of object tracking, define the size of the video to be saved
-        result = traffic_analyst.update(im)
+        result = see_far.update(im)
         result = result['frame']    # image that has been added bbox and text, 3D array (h, w, 3)
         result = imutils.resize(result, height=1000)    # resize the result if you want
 

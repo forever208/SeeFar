@@ -13,7 +13,7 @@ cfg = get_config()
 cfg.merge_from_file("deep_sort/configs/deep_sort.yaml")
 
 
-class TrafficAnalyst():
+class SeeFar():
     """
     Detector + Tracker + Dynamic area + Speed estimator
     """
