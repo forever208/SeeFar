@@ -1,5 +1,7 @@
 # SeeFar: Vehicle Speed Estimation and Flow Analysis from a Moving UAV
-traffic flow analysis by DeepSORT, including object counting, speed estimation and dynamic area identification (main road)
+
+## Abstract
+Visual perception from drones has been largely investigated for Intelligent Traffic Monitoring System (ITMS) recently. In this paper, we introduce SeeFar to achieve vehicle speed estimation and traffic flow analysis based on YOLOv5 and DeepSORT from a moving drone. SeeFar differs from previous works in three key ways: the speed estimation and flow analysis components are integrated into a unified framework; our method of predicting car speed has the least constraints while maintaining a high accuracy; our flow analysor is direction-aware and outlier-aware. Specifically, we design the speed estimator only using the camera imaging geometry, where the transformation between world space and image space is completed by the variable Ground Sampling Distance. Besides, previous papers do not evaluate their speed estimators at scale due to the difficulty of obtaining the ground truth, we therefore propose a simple yet efficient approach to estimate the true speeds of vehicles via the prior size of the road signs. We evaluate SeeFar on our ten videos that contain 929 vehicle samples. Experiments on these sequences demonstrate the effectiveness of SeeFar by achieving 98.0% accuracy of speed estimation and 99.1% accuracy of traffic volume prediction, respectively.
 
  
 
