@@ -35,7 +35,6 @@ conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cpuonly -c pyt
 
 # for GPU (note the cuda version of your computer)
 conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cudatoolkit=11.0 -c pytorch
-
 ```
 
 repo clone and dependencies installation 
@@ -44,6 +43,19 @@ git clone https://github.com/forever208/SeeFar.git
 
 cd SeeFar/
 pip install -r requirements.txt
-
 ```
+
+## 【2】Demo 
+First, download our video dataset from [GoogleDrive](https://drive.google.com/file/d/1PtRJYQV-STRnRB_Cm77mC7Lj7CVtINIY/view?usp=sharing) and put into the folder `video/`
+
+The video filename shows the parameters: 
+```
+10 -- video number
+H45 -- the height of the drone, 45m
+theta25 -- the tilt angle of the drone camera, 25 degree
+-20 -- the flying speed of the drone, 20 km/h and - means flying direction 
+```
+
+
+
 
