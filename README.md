@@ -18,10 +18,10 @@ Running the repo in Colab is recommended, copy the file [YOLOv5_DeepSORT.ipynb](
 * Python >= 3.7
 * Pytorch >= 1.7
 
-Create a new conda environment called DeepSORT , install pytorch-1.7.0 (Colab user can skip this step) 
+Create a new conda environment called SeeFar, install pytorch
 ```
-conda create --name DeepSORT python=3.7
-conda activate DeepSORT
+conda create --name SeeFar python=3.8
+conda activate SeeFar
 
 # for cpu
 conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cpuonly -c pytorch
@@ -33,9 +33,9 @@ conda install pytorch==1.7.0 torchvision==0.8.0 torchaudio==0.7.0 cudatoolkit=11
 
 repo clone and dependencies installation 
 ```
-git clone -b master https://github.com/forever208/yolov5-deepsort.git
+git clone https://github.com/forever208/SeeFar.git
 
-cd yolov5-deepsort/
+cd SeeFar/
 pip install -r requirements.txt
 
 ```
