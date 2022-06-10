@@ -6,7 +6,8 @@ Visual perception from drones has been largely investigated for Intelligent Traf
  
 
 ## 【0】Introduction
-This repo referenced [YOLOv5_DeepSORT_Pytorch](https://github.com/mikel-brostrom/Yolov5_DeepSort_Pytorch)
+This repo referenced [YOLOv5_DeepSORT_Pytorch](https://github.com/mikel-brostrom/Yolov5_DeepSort_Pytorch).
+
 The backbone YOLOv5 used in this project is  [v5.0 YOLOv5](https://github.com/ultralytics/yolov5/releases/tag/v5.0), you can easily upgrade to 6.0 by replacing the whole folder `models/` and `scrips/`
 
 
