@@ -45,17 +45,23 @@ cd SeeFar/
 pip install -r requirements.txt
 ```
 
-## 【2】Demo 
+## 【2】Demo
 First, download our video dataset from [GoogleDrive](https://drive.google.com/file/d/1PtRJYQV-STRnRB_Cm77mC7Lj7CVtINIY/view?usp=sharing) and put into the folder `video/`
+
+Only one video is public available right now, if you are interested in the whole dataset, please email me (ningmang666@gmail.com)
 
 The video filename shows the parameters: 
 ```
 10 -- video number
 H45 -- the height of the drone, 45m
 theta25 -- the tilt angle of the drone camera, 25 degree
--20 -- the flying speed of the drone, 20 km/h and - means flying direction 
+20 -- the flying speed of the drone, 20 km/h
 ```
 
-
+then, run the script:
+```
+python demo.py --video video/10_H45_theta25_20km.MP4 --output video/result.mp4 --model yolov5m --cam_angle 25 --drone_h 45 --drone_speed 20
+```
+note that the weitghts of yolov5 will be automatically downloaded.
 
 
