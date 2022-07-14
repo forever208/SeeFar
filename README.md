@@ -58,10 +58,15 @@ theta25 -- the tilt angle of the drone camera, 25 degree
 20 -- the flying speed of the drone, 20 km/h
 ```
 
-then, run the script:
+then download our weights file `yolov5m_best.pt` into folder `weights/`
 ```
-python demo.py --video video/10_H45_theta25_20km.MP4 --output video/result.mp4 --model yolov5m --cam_angle 25 --drone_h 45 --drone_speed 20
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1qIYuoKnkwnzijSfnI__HEhhfSEx0-rRn' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1qIYuoKnkwnzijSfnI__HEhhfSEx0-rRn" -O yolov5m_best.pt && rm -rf /tmp/cookies.txt
 ```
-note that the weitghts of yolov5 will be automatically downloaded.
+
+
+finally, run the demo script:
+```
+python demo.py --video video/10_H45_theta25_20km.MP4 --output video/result.mp4 --model yolov5m_best --cam_angle 25 --drone_h 45 --drone_speed 20
+```
 
 
